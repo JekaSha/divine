@@ -1,0 +1,54 @@
+# Laravel
+/.env
+/.idea/
+/vendor/
+/node_modules/
+node_modules
+/public/storage
+/storage/*.key
+/storage/*.log
+/storage/framework/cache/data
+/storage/framework/sessions/*.log
+/storage/framework/sessions/*.json
+/storage/logs/*.log
+/public/hot
+/public/storage
+/public/mix-manifest.json
+
+# Composer
+composer.lock
+
+# PHPUnit
+phpunit.xml
+phpunit.xml.dist
+
+# Laravel Mix
+mix-manifest.json
+
+# IDEs and Editors
+/.vscode/
+/.idea/
+/.DS_Store
+
+# Docker
+docker-compose.override.yml
+docker-compose.override.yml
+
+# NPM and Yarn
+package-lock.json
+yarn-error.log
+npm-debug.log
+
+# Node.js
+/node_modules/
+
+# Vue.js
+/dist/
+/build/
+
+# Other files
+*.log
+*.sql
+*.sqlite
+*.sqlite3
+
