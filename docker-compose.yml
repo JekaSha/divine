@@ -1,0 +1,75 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    volumes:
+      - ./backend:/var/www/html
+      - ./backend/storage:/var/www/html/storage
+    networks:
+      - app-network
+    command: >
+      sh -c "php artisan config:clear && php-fpm"
+      sh -c "php artisan config:cache && php-fpm"
+
+  vue:
+    build:
+      context: ./frontend  
+      dockerfile: Dockerfile  
+    ports:
+      - "8081:8080"  
+    volumes:
+      - ./frontend:/usr/src/app 
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./backend/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  db:
+    image: mysql:8.0
+    container_name: db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: kJ3l@!!938j@k@k
+      MYSQL_DATABASE: maxobmin
+      MYSQL_USER: obmin
+      MYSQL_PASSWORD: 5kLk231s
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    ports:
+      - "3306:3306"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    platform: linux/amd64    
+    environment:
+      PMA_HOST: db
+      PMA_ARBITRARY: 1
+      PMA_AUTH_TYPE: cookie  
+    ports:
+      - "8080:80"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  db_data:
+
+
+
