@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Repositories\Exchanges\ExchangeApiFactory;
 use App\Models\Account;
 use App\Models\Exchange;
+use App\Repositories\Exchanges\ExchangeApiFactory;
 
 class ExchangeApiService {
 
@@ -15,10 +15,12 @@ class ExchangeApiService {
         if ($account instanceof Account) {
             if ($account->exchange) {
                 $exchangeName = $account->exchange->name;
-                $key = $account->api_key;
-                $secret = $account->api_secret;
 
-                $this->api = ExchangeApiFactory::create($exchangeName, $key, $secret);
+                $key = trim($account->api_key);
+                $secret = trim($account->api_secret);
+                $stream = $account->stream;
+
+                $this->api = ExchangeApiFactory::create($exchangeName, $key, $secret, $stream);
             } else {
                 throw new \InvalidArgumentException("Account must have an associated exchange.");
             }
@@ -37,7 +39,54 @@ class ExchangeApiService {
 
         $rate = $this->api->getExchangeRate($from, $to);
 
-        return $rate;
+        $response = ["status" => "error"];
+        if ($rate) {
+            $response = ['status' => "success", "data" =>
+                ['symbols' => [
+                    "{$from}{$to}" => [
+                        "symbol" => "{$from}{$to}",
+                        "rate" => $rate
+                    ]
+                    ]
+                ]
+            ];
+        }
+
+        return $response;
+    }
+
+    public function createWallet($currency, $protocol) {
+
+        $wallet = $this->api->createWallet($currency, $protocol);
+        dd($wallet);
+        return $wallet;
+    }
+
+
+    public function getTransactionHistory(string $symbol = null)
+    {
+
+        $history = $this->api->getTransactionHistory($symbol);
+
+        if ($history) {
+            return [
+                'status' => 'success',
+                'data' => $history
+            ];
+        }
+
+        return ['status' => 'error', 'message' => 'Unable to fetch transaction history'];
+    }
+
+
+    public function market($type, $fromCurrency, $toCurrency, $amount) {
+
+        $r = $this->api->market($type, $fromCurrency,$toCurrency, $amount);
+        return $r;
+    }
+    public function transferFunds($walletAddress, $amount, $currency, $protocol) {
+        $r = $this->api->transferFunds($walletAddress, $amount, $currency, $protocol);
+        return $r;
     }
 
 }

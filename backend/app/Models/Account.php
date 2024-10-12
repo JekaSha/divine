@@ -16,7 +16,12 @@ class Account extends Model
         'description',
         'api_key',
         'api_secret',
+        'stream',  // Stream is optional
         'status',
+    ];
+
+    protected $casts = [
+        'stream' => 'json',  // Cast stream as JSON
     ];
 
     /**
