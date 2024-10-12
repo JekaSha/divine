@@ -43,12 +43,13 @@
 				label="Протокол для получения"
 			></v-autocomplete>
 
-			<v-btn @click="fetchRate">Получить сумму</v-btn>
+
 			<v-alert v-if="receivedAmount" type="info">
-				Сумма, которую вы получите: {{ receivedAmount }}
+				<p>Обменный курс <b>{{selectedCurrencyName}}:{{targetCurrencyName}}</b> = {{ rate }}</p>
+				<p>Сумма, которую вы получите: {{ receivedAmount }}</p>
 			</v-alert>
 
-			<v-btn @click="openWalletModal">Создать заявку</v-btn>
+			<v-btn @click="openWalletModal" :disabled="!isRateFetched">Создать заявку</v-btn>
 
 			<v-dialog v-model="walletDialog">
 				<v-card>
@@ -62,6 +63,23 @@
 					</v-card-actions>
 				</v-card>
 			</v-dialog>
+
+			<v-dialog v-model="showConfirmationModal">
+				<v-card>
+					<v-card-title>Подтверждение транзакции</v-card-title>
+					<v-card-text>
+						<p>Адрес кошелька: <strong>{{ walletAddress }}</strong></p>
+						<p>Сумма для отправки: <strong>{{ amount }}</strong></p>
+						<p>Сумма, которую вы получите: <strong>{{ receivedAmount }}</strong></p>
+						<p>Время действия транзакции: <strong>{{ expiryTime }}</strong></p>
+					</v-card-text>
+					<v-card-actions>
+						<v-btn @click="confirmTransaction">Подтвердить</v-btn>
+						<v-btn @click="showConfirmationModal = false">Закрыть</v-btn>
+					</v-card-actions>
+				</v-card>
+			</v-dialog>
+
 		</v-form>
 	</v-container>
 </template>
@@ -82,8 +100,23 @@ export default {
 			receivedAmount: null,
 			walletAddress: '',
 			walletDialog: false,
+			rate: 0,
+			isRateFetched: false,
+			showConfirmationModal: false,
 		};
 	},
+
+	computed: {
+		selectedCurrencyName() {
+			const currency = this.currencies.find(currency => currency.currency_id === this.selectedCurrency);
+			return currency ? currency.currency_name : '';
+		},
+		targetCurrencyName() {
+			const currency = this.currencies.find(currency => currency.currency_id === this.targetCurrency);
+			return currency ? currency.currency_name : '';
+		},
+	},
+
 	methods: {
 		async loadCurrencies() {
 
@@ -108,12 +141,10 @@ export default {
 
 				this.selectedProtocol = null;
 
-				// Обновляем список доступных валют для получения
 				this.updateFilteredCurrencies();
 			}
 		},
 		updateFilteredCurrencies() {
-			// Фильтруем валюты, исключая выбранную исходную валюту
 			this.filteredCurrencies = this.currencies.filter(
 				(currency) => currency.currency_id !== this.selectedCurrency
 			);
@@ -134,48 +165,97 @@ export default {
 				: [];
 			this.targetProtocol = null; // Сброс выбранного протокола
 		},
-		async fetchRate() {
-			// Запрос на получение суммы, которую пользователь получит
-			try {
-				const response = await this.$axios.get(`/exchange/rate`, {
-					params: {
-						currency: this.selectedCurrency,
-						protocol: this.selectedProtocol,
-						to_currency: this.targetCurrency,
-						to_protocol: this.targetProtocol,
-						amount: this.amount,
-					},
-				});
-				this.receivedAmount = response.data.amount; // Предполагается, что сумма приходит в поле amount
-			} catch (error) {
-				console.error('Ошибка при получении курса:', error);
-			}
-		},
+
 		openWalletModal() {
 			this.walletDialog = true;
 		},
 		async submitRequest() {
-			// Отправить запрос на создание заявки
+			// Validate necessary data before proceeding
+			if (!this.selectedCurrency || !this.selectedProtocol || !this.amount || !this.targetCurrency || !this.targetProtocol || !this.walletAddress) {
+				console.error('Please fill in all required fields.');
+				return;
+			}
+
+			// Step 1: Submit the order and create the wallet in a single request
 			try {
-				const response = await this.$axios.post('/exchange/request', {
-					wallet: this.walletAddress,
-					amount: this.amount,
-					currency: this.selectedCurrency,
-					protocol: this.selectedProtocol,
-					target_currency: this.targetCurrency,
-					target_protocol: this.targetProtocol,
+				const response = await this.$axios.get('/exchange/order', {
+					params: {
+						amount: this.amount,
+						currency: this.selectedCurrency,
+						protocol: this.selectedProtocol,
+						target_currency: this.targetCurrency,
+						target_protocol: this.targetProtocol,
+						wallet_address: this.walletAddress, // Include user-provided wallet address
+					}
 				});
-				// Обработка ответа
-				this.walletDialog = false;
-				console.log('Заявка успешно создана:', response.data);
+
+
+				// Step 2: Retrieve wallet address, received amount, and expiry time from the response
+				const { wallet_address, received_amount, expiry_time } = response.data.data;
+
+				// Step 3: Show the information in a modal
+				this.walletAddress = wallet_address;
+				this.receivedAmount = received_amount;
+				this.expiryTime = expiry_time;
+
+				this.showConfirmationModal = true; // Show the modal
 			} catch (error) {
-				console.error('Ошибка при создании заявки:', error);
+				console.error('Error creating order:', error);
 			}
 		},
+
+		async fetchReceivedAmount() {
+			if (this.selectedCurrency && this.targetCurrency && this.amount) {
+				try {
+					const response = await this.$axios.get('/exchange/rate', {
+						params: {
+							currency: this.selectedCurrency,
+							to_currency: this.targetCurrency,
+							amount: this.amount,
+						}
+					});
+					if (response.data.status == 'success') {
+						const data = response.data.data;
+						this.receivedAmount = data.receivedAmount; // Предполагается, что API возвращает сумму получения
+						this.rate = data.rate;
+						this.isRateFetched = true; // Устанавливаем true, когда курс получен
+					} else {
+						this.receivedAmount = 0;
+						this.isRateFetched = false; // Устанавливаем false, если курс не получен
+					}
+				} catch (error) {
+					console.error('Ошибка при получении суммы:', error);
+					this.isRateFetched = false; // Устанавливаем false при ошибке
+				}
+			}
+		},
+	},
+
+	watch: {
+
+		selectedCurrency(newValue) {
+			this.receivedAmount = null; // Сбрасываем сумму
+			this.isRateFetched = false; // Дизаблим кнопку
+			this.fetchReceivedAmount();
+		},
+		amount(newValue) {
+			this.receivedAmount = null; // Сбрасываем сумму
+			this.isRateFetched = false; // Дизаблим кнопку
+			this.fetchReceivedAmount();
+		},
+		targetCurrency(newValue) {
+			this.receivedAmount = null; // Сбрасываем сумму
+			this.isRateFetched = false; // Дизаблим кнопку
+			this.fetchReceivedAmount();
+		},
+
+
 	},
 	mounted() {
 		// Загрузка доступных валют с бэкенда при монтировании компонента
 		this.loadCurrencies();
 	},
+
+
 };
 </script>

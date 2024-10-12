@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('description');
             $table->string('api_key', 128);
             $table->string('api_secret', 128);
+            $table->json('stream');
 
             $table->enum('status', ['active', 'inactive'])->default('active');
 

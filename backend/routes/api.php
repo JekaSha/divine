@@ -10,3 +10,7 @@ Route::get('/user', function (Request $request) {
 use App\Http\Controllers\ExchangeController;
 Route::get('/exchange/getAllCurrencies', [ExchangeController::class, 'getAvailableCurrencies']);
 Route::get('/exchange/rate', [ExchangeController::class, 'getRate']);
+
+Route::get('/exchange/order', [ExchangeController::class, 'postOrder']);
+
+

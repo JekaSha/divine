@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('strategies', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->text('description');
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->json('stream')->nullable();
             $table->string('className')->nullable();
