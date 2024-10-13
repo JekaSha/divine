@@ -13,11 +13,13 @@ class WalletRepository
      */
     public function getAvailableCurrencies($userId)
     {
-        $currencies = Wallet::with(['currency', 'protocol']) // Загружаем валюты и протоколы
-        ->where('status', 'system')
-            ->where('user_id', $userId)
+        $currencies = Wallet::with(['currency', 'protocol', 'account'])
+            ->where('status', 'active')
+            ->whereHas('account', function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
             ->get()
-            ->groupBy('currency.id') // Группируем по ID валюты
+            ->groupBy('currency.id')
             ->map(function ($group) {
                 return [
                     'currency_id' => $group->first()->currency->id,
@@ -27,23 +29,44 @@ class WalletRepository
                             'protocol_id' => $item->protocol->id,
                             'protocol_name' => $item->protocol->name,
                         ];
-                    })->unique('protocol_id'), // Уникальные протоколы по ID
+                    })->unique('protocol_id'),
                 ];
             })
             ->values();
 
         return $currencies;
     }
-
     public function get($currencyId, $protocolId, $userId) {
 
         $wallets = Wallet::where('currency_id', $currencyId)
             ->where('status', 'active')
-            ->where('protocol_id', $protocolId)
-            ->where('user_id', $userId)
-            ->get();
+            ->whereHas('account.user', function ($query) use ($userId) {
+                $query->where('id', $userId);
+            });
 
-        return $wallets;
+
+        if ($protocolId !== false) {
+            $wallets->where('protocol_id', $protocolId);
+        }
+
+
+        return $wallets->get();
+    }
+
+    public function getFreeWallet(int $userId, int $currencyId, int $protocolId, $type = "rand") {
+
+        if ($type == 'rand') {
+            $wallet = Wallet::where('status', 'active')
+                ->where('currency_id', $currencyId)
+                ->where('protocol_id', $protocolId)
+                ->whereHas('account.user', function ($query) use ($userId) {
+                    $query->where('id', $userId);
+                })
+                ->inRandomOrder()
+                ->first();
+        }
+
+        return $wallet;
     }
 
 }

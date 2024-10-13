@@ -6,11 +6,13 @@ use App\Services\ExchangeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use App\Models\Wallet;
+use App\Http\Requests\Exchange\PostOrderRequest;
 
 
 class ExchangeController extends Controller
 {
     protected $exchangeService;
+    protected $userId = 1;
 
     public function __construct(ExchangeService $exchangeService)
     {
@@ -56,37 +58,28 @@ class ExchangeController extends Controller
         $toCurrencyId = $request->to_currency;
         $amount = $request->amount;
 
-        $wallet = Wallet::where('status', 'system')
-            ->where('currency_id', $currencyId)
-            ->first();
+        $wallet = $this->exchangeService->getWallets($currencyId, false, $this->userId)->first();
 
+        $json = ['status' => 'error', 'msg' => 'No Active Wallet'];
         if ($wallet && $currencyId && $toCurrencyId) {
             $exchangeId = $wallet->account->exchange_id;
             $rate = $this->exchangeService->getExchangeRate($currencyId, $toCurrencyId, $exchangeId);
+            $receivedAmount = $request->amount * $rate;
+            $json = ['status' => 'success', "data" => [
+                'receivedAmount' => $receivedAmount,
+                'rate' => $rate
+            ]];
         }
 
-        $receivedAmount = $request->amount * $rate;
-
-        $json = ['status' => 'success', "data" => [
-            'receivedAmount' => $receivedAmount,
-            'rate' => $rate
-        ]];
 
         return $json;
     }
 
-    public function postOrder(Request $request) {
-/*
-        $request->validate([
-            'wallet' => 'required|string|max:255',
-            'amount' => 'required|numeric',
-            'currency' => 'required|exists:currencies,id',
-            'protocol' => 'required|exists:currency_protocols,id',
-            'target_currency' => 'required|exists:currencies,id',
-            'target_protocol' => 'required|exists:currency_protocols,id',
-        ]);
-*/
-        $data = $this->exchangeService->postOrder($request);
+    public function postOrder(PostOrderRequest $request) {
+
+        $validatedData = $request->validated();
+
+        $data = $this->exchangeService->postOrder($validatedData);
 
         return $data;
     }

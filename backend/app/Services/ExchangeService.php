@@ -2,6 +2,9 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\DB;
+
+
 use App\Events\FundsCredited;
 use App\Events\TransactionStatusUpdated;
 use App\Models\Account;
@@ -14,6 +17,8 @@ use App\Models\Wallet;
 use App\Repositories\CurrencyProtocolRepository;
 use App\Repositories\CurrencyRepository;
 use App\Repositories\WalletRepository;
+use App\Repositories\TransactionRepository;
+use App\Repositories\OrderRepository;
 
 
 class ExchangeService
@@ -22,18 +27,24 @@ class ExchangeService
     protected $protocolRepository;
     protected $walletRepository;
     protected $exchangeApiService;
+    protected $transactionRepository;
+    protected $orderRepository;
 
     protected $userId = 1; //user exchanger
 
     public function __construct(
         CurrencyRepository $currencyRepository,
         CurrencyProtocolRepository $protocolRepository,
-        WalletRepository $walletRepository
+        WalletRepository $walletRepository,
+        TransactionRepository $transactionRepository,
+        OrderRepository $orderRepository
     )
     {
         $this->currencyRepository = $currencyRepository;
         $this->protocolRepository = $protocolRepository;
         $this->walletRepository = $walletRepository;
+        $this->transactionRepository = $transactionRepository;
+        $this->orderRepository = $orderRepository;
     }
 
     public function getData(array $currencyFilters = [], array $protocolFilters = [])
@@ -49,13 +60,15 @@ class ExchangeService
 
     public function getAvailableCurrencies()
     {
-        return $this->walletRepository->getAvailableCurrencies($this->userId);
+        $available = $this->walletRepository->getAvailableCurrencies($this->userId);
+
+        return $available;
     }
 
     public function getExchangeRate($fromCurrencyId, $toCurrencyId, $exchangeId)
     {
-        $fromCurrency = Currency::find($fromCurrencyId);
-        $toCurrency = Currency::find($toCurrencyId);
+        $fromCurrency = $this->currencyRepository->all(['id' =>$fromCurrencyId])->first();
+        $toCurrency = $this->currencyRepository->all(['id' => $toCurrencyId])->first();
 
         $this->exchangeApiService = new ExchangeApiService($exchangeId);
 
@@ -82,69 +95,93 @@ class ExchangeService
         return null;
     }
 
-    public function postOrder($request) {
+    use Illuminate\Support\Facades\DB;
 
-        $currencyId = $request->currency;
-        $protocolId = $request->protocol;
-
-        $wallet = Wallet::where('status', 'system')
-            ->where('currency_id', $currencyId)
-            ->where('user_id', $this->userId)
-            ->first();
-
-        $exchangeId = $wallet->account->exchange_id;
-        $accountId = $wallet->account->id;
-
-        $stream = $request->all();
-        $exchangeRate = $this->getExchangeRate($request->currency, $request->target_currency, $exchangeId);
-
+    public function postOrder($validatedData) {
         $data = ['status' => 'error', "message" => "Cannot get exchange rate"];
-        if ($exchangeRate) {
-            $wallet = $this->getWallet($currencyId, $protocolId, $this->userId);
+
+        try {
+            $currencyId        = $validatedData['currency'];
+            $protocolId        = $validatedData['protocol'];
+            $amount            = $validatedData['amount'];
+            $targetCurrencyId  = $validatedData['target_currency'];
+            $targetProtocolId  = $validatedData['target_protocol'];
+            $walletAddress     = $validatedData['wallet_address'];
+            $email             = $validatedData['email'];
+            $stream            = $validatedData->all();
+
+            // Fetch the wallet
+            $wallet = $this->walletRepository->getFreeWallet($this->userId, $currencyId, $protocolId);
 
             if (!$wallet) {
                 return ['status' => 'error', 'message' => 'Failed to create wallet.'];
             }
 
-            // Create the transaction
-            $transaction = Transaction::create([
-                'wallet_id' => $wallet->id, // Use the newly created wallet ID
-                'type' => 'incoming',
-                'status' => 'pending',
-                'amount' => $request->amount,
-                'exchange_rate' => $exchangeRate,
-                'expiry_time' => now()->addMinutes(30), // Example expiry time
-            ]);
+            $exchangeId = $wallet->account->exchange_id;
 
-            // Create the order using the user-provided wallet address
-            $order = Order::create([
-                'transaction_id' => $transaction->id,
-                'status' => 'pending',
-                'user_id' => $this->userId, //guest
-                'amount' => $request->amount,
-                'wallet_address' => $request->wallet_address, // Use the user-provided wallet address
-                'currency_id' => $request->target_currency,
-                'protocol_id' => $request->target_protocol,
-                'current_rate' => $exchangeRate,
-                'stream' => $stream,
-            ]);
+            $exchangeRate = $this->getExchangeRate($currencyId, $targetCurrencyId, $exchangeId);
 
-            $data = [
-                'status' => 'success',
-                'data' => [
+            if (!$exchangeRate) {
+                return response()->json($data);
+            }
+
+            // Wrap operations in a transaction
+            $result = DB::transaction(function () use ($walletAddress, $amount, $email, $wallet, $exchangeRate, $stream, $targetCurrencyId, $targetProtocolId) {
+                // Create the transaction (moved to repository)
+                $transactionData = [
+                    'wallet_id'      => $wallet->id,
+                    'type'           => 'incoming',
+                    'status'         => 'pending',
+                    'amount'         => $amount,
+                    'exchange_rate'  => $exchangeRate,
+                    'expiry_time'    => now()->addMinutes(30),
+                ];
+                $transaction = $this->transactionRepository->create($transactionData);
+
+                // Fetch target currency and protocol
+                //$targetCurrency = $this->currencyRepository->get(['id' => $targetCurrencyId])->first();
+                //$targetProtocol = $this->protocolRepository->get(['id' => $targetProtocolId])->first();
+
+                if (!$targetCurrencyId || !$targetProtocolId) {
+                    throw new \Exception('Invalid target currency or protocol.');
+                }
+
+                // Create the order (moved to repository)
+                $orderData = [
                     'transaction_id' => $transaction->id,
-                    'order_id' => $order->id,
-                    'wallet_address' => $wallet->wallet_token, // The newly created wallet address
-                    'received_amount' => $request->amount * $exchangeRate, // Calculate the received amount
-                    'expiry_time' => $transaction->expiry_time->toDateTimeString(), // Format expiry time
-                ],
-            ];
+                    'status'         => 'pending',
+                    'user_id'        => $this->userId,
+                    'amount'         => $amount,
+                    'wallet_address' => $walletAddress,
+                    'currency_id'    => $targetCurrencyId,
+                    'protocol_id'    => $targetProtocolId,
+                    'current_rate'   => $exchangeRate,
+                    'email'          => $email,
+                    'stream'         => $stream,
+                ];
+                $order = $this->orderRepository->create($orderData);
 
+                return [
+                    'status' => 'success',
+                    'data'   => [
+                        'transaction_id' => $transaction->id,
+                        'order_id'       => $order->id,
+                        'wallet_address' => $wallet->wallet_token,
+                        'received_amount'=> $amount * $exchangeRate,
+                        'expiry_time'    => $transaction->expiry_time->toDateTimeString(),
+                    ],
+                ];
+            });
+
+            return response()->json($result);
+
+        } catch (\Exception $e) {
+            // Handle exceptions and return an error response
+            // Optionally log the exception: Log::error($e);
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
         }
-
-        return response()->json($data);
-
     }
+
 
     public function createWallet($accountId, $exchangeId, $currencyId, $protocolId) {
 
@@ -174,16 +211,11 @@ class ExchangeService
         return $wallet;
     }
 
-    public function getWallet($currencyId, $protokolId, $accountId) {
+    public function getWallets($currencyId, $protokolId, $userId) {
 
-        $wallets = $this->walletRepository->get($currencyId, $protokolId, $accountId);
+        $wallets = $this->walletRepository->get($currencyId, $protokolId, $userId);
 
-        if ($wallets->isNotEmpty()) {
-
-            return $wallets->random();
-        }
-
-        return null;
+        return $wallets;
     }
 
     public function extractRate($r):float {
