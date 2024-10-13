@@ -18,13 +18,11 @@ return new class extends Migration
             $table->unsignedBigInteger('protocol_id');
             $table->string('wallet_token',128);
             $table->enum('status', ['active', 'stop', 'system'])->default('active');
-            $table->unsignedBigInteger('user_id')->nullable();
             $table->timestamps();
 
             $table->foreign('account_id')->references('id')->on('accounts')->onDelete('cascade');
             $table->foreign('currency_id')->references('id')->on('currencies')->onDelete('cascade');
             $table->foreign('protocol_id')->references('id')->on('currency_protocols')->onDelete('cascade');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
         });
     }
 

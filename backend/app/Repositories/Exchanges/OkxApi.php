@@ -21,22 +21,69 @@ class OkxApi implements ExchangeApiInterface
 
     public function getExchangeRate($fromCurrency, $toCurrency)
     {
-
-
         $data = [
-            'instId' => $this->normalizePair($fromCurrency,$toCurrency)
+            'instId' => $this->normalizePair($fromCurrency, $toCurrency)
         ];
 
         $url = "{$this->baseUrl}/market/ticker";
+
         $r = $this->sendRequest('GET', $url, $data);
 
+        if ($r['code'] == 51001) {
+
+            // Try the inverse pair
+            $data = [
+                'instId' => $this->normalizePair($toCurrency, $fromCurrency)
+            ];
+
+            $r = $this->sendRequest('GET', $url, $data);
+            if ($r['code'] == '0') {
+                return 1 / (float)($r['data'][0]['last']);
+            }
+
+            // If inverse pair also fails, calculate via USDT
+
+            // Get fromCurrency to USDT rate
+            $dataFromUSDT = [
+                'instId' => $this->normalizePair($fromCurrency, 'USDT')
+            ];
+
+            $rFromUSDT = $this->sendRequest('GET', $url, $dataFromUSDT);
+
+            if ($rFromUSDT['code'] != '0') {
+                // Cannot get fromCurrency to USDT rate
+                return null;
+            }
+
+            $fromUSDT = (float)$rFromUSDT['data'][0]['last'];
+
+            // Get toCurrency to USDT rate
+            $dataToUSDT = [
+                'instId' => $this->normalizePair($toCurrency, 'USDT')
+            ];
+
+            $rToUSDT = $this->sendRequest('GET', $url, $dataToUSDT);
+
+            if ($rToUSDT['code'] != '0') {
+                // Cannot get toCurrency to USDT rate
+                return null;
+            }
+
+            $toUSDT = (float)$rToUSDT['data'][0]['last'];
+
+            // Now compute the rate between fromCurrency and toCurrency
+            $exchangeRate = $fromUSDT / $toUSDT;
+            return $exchangeRate;
+        }
+
         if ($r['code'] == '0') {
-            return $r['data'][0]['last'];
+            return (float)$r['data'][0]['last'];
         }
 
         return null;
-
     }
+
+
 
     public function createWallet($currency, $protocol)
     {

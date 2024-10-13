@@ -10,11 +10,24 @@ class CurrencyRepository
     {
         $query = Currency::query();
 
-        // Применяем фильтры
         if (isset($filters['status'])) {
             $query->whereIn('status', $filters['status']);
         }
 
+        if (isset($filters['name'])) {
+            if (isset($filters['exact']) && $filters['exact']) {
+                $query->where('name', $filters['name']);
+            } else {
+                $query->where('name', 'like', '%' . $filters['name'] . '%');
+            }
+        }
+
+        if (isset($filters['id'])) {
+            $query->whereIn('id', (array) $filters['id']);
+        }
+
         return $query->get();
     }
+
+
 }

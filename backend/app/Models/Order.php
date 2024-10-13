@@ -25,6 +25,7 @@ class Order extends Model
         'current_rate',
         'stream',
         'comment',
+        'email',
     ];
 
     /**

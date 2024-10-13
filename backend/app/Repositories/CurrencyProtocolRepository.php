@@ -10,13 +10,26 @@ class CurrencyProtocolRepository
     {
         $query = CurrencyProtocol::query();
 
-        // Применяем фильтры
         if (isset($filters['status'])) {
             $query->whereIn('status', $filters['status']);
         }
 
+        if (isset($filters['name'])) {
+            if (isset($filters['exact']) && $filters['exact']) {
+                $query->where('name', $filters['name']);
+            } else {
+                $query->where('name', 'like', '%' . $filters['name'] . '%');
+            }
+        }
+
+        // Фильтр по ID
+        if (isset($filters['id'])) {
+            $query->whereIn('id', (array) $filters['id']); // Используем whereIn для возможности передачи нескольких ID
+        }
+
         return $query->get();
     }
+
 
     /**
      *

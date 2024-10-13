@@ -53,7 +53,10 @@
 
 			<v-dialog v-model="walletDialog">
 				<v-card>
-					<v-card-title>Введите адрес кошелька</v-card-title>
+					<v-card-title>Введите email & адрес кошелька</v-card-title>
+					<v-card-text>
+						<v-text-field v-model="email" label="Email"></v-text-field>
+					</v-card-text>
 					<v-card-text>
 						<v-text-field v-model="walletAddress" label="Адрес кошелька"></v-text-field>
 					</v-card-text>
@@ -100,6 +103,7 @@ export default {
 			receivedAmount: null,
 			walletAddress: '',
 			walletDialog: false,
+			email: '',
 			rate: 0,
 			isRateFetched: false,
 			showConfirmationModal: false,
@@ -163,7 +167,7 @@ export default {
 			this.targetCurrencyProtocols = targetCurrencyData
 				? targetCurrencyData.protocols
 				: [];
-			this.targetProtocol = null; // Сброс выбранного протокола
+			this.targetProtocol = null;
 		},
 
 		openWalletModal() {
@@ -186,6 +190,7 @@ export default {
 						target_currency: this.targetCurrency,
 						target_protocol: this.targetProtocol,
 						wallet_address: this.walletAddress, // Include user-provided wallet address
+						email: this.email,
 					}
 				});
 
@@ -216,16 +221,16 @@ export default {
 					});
 					if (response.data.status == 'success') {
 						const data = response.data.data;
-						this.receivedAmount = data.receivedAmount; // Предполагается, что API возвращает сумму получения
+						this.receivedAmount = data.receivedAmount;
 						this.rate = data.rate;
-						this.isRateFetched = true; // Устанавливаем true, когда курс получен
+						this.isRateFetched = true;
 					} else {
 						this.receivedAmount = 0;
-						this.isRateFetched = false; // Устанавливаем false, если курс не получен
+						this.isRateFetched = false;
 					}
 				} catch (error) {
 					console.error('Ошибка при получении суммы:', error);
-					this.isRateFetched = false; // Устанавливаем false при ошибке
+					this.isRateFetched = false;
 				}
 			}
 		},
@@ -234,25 +239,24 @@ export default {
 	watch: {
 
 		selectedCurrency(newValue) {
-			this.receivedAmount = null; // Сбрасываем сумму
-			this.isRateFetched = false; // Дизаблим кнопку
+			this.receivedAmount = null;
+			this.isRateFetched = false;
 			this.fetchReceivedAmount();
 		},
 		amount(newValue) {
-			this.receivedAmount = null; // Сбрасываем сумму
-			this.isRateFetched = false; // Дизаблим кнопку
+			this.receivedAmount = null;
+			this.isRateFetched = false;
 			this.fetchReceivedAmount();
 		},
 		targetCurrency(newValue) {
-			this.receivedAmount = null; // Сбрасываем сумму
-			this.isRateFetched = false; // Дизаблим кнопку
+			this.receivedAmount = null;
+			this.isRateFetched = false;
 			this.fetchReceivedAmount();
 		},
 
 
 	},
 	mounted() {
-		// Загрузка доступных валют с бэкенда при монтировании компонента
 		this.loadCurrencies();
 	},
 

@@ -16,10 +16,7 @@ class HandleFundsCredited implements ShouldQueue
         $transaction = $event->transaction;
 
         // Retrieve the strategy ID from the account associated with the wallet
-        $strategyId = $this->getStrategyIdForAccount($transaction->wallet->account_id);
-
-        // Fetch the strategy from the database
-        $strategy = Strategy::find($strategyId);
+        $strategy = $this->getStrategyIdForAccount($transaction->wallet->account_id);
 
         // Check if the strategy exists and is a valid class
         if ($strategy && class_exists($strategy->className)) {

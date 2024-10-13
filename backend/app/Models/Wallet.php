@@ -15,7 +15,6 @@ class Wallet extends Model
         'protocol_id',
         'wallet_token',
         'status',
-        'user_id',
     ];
 
     /**
