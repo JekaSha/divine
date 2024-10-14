@@ -1,8 +1,10 @@
 <?php
 
-namespace App\Strategies\Services;
+namespace App\Services\Strategies;
+
+use App\Models\Transaction;
 
 interface StrategyInterface
 {
-    public function execute(array $data);
+    public function execute(Transaction $transaction);
 }

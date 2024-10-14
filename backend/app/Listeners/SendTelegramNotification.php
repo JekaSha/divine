@@ -40,8 +40,8 @@ class SendTelegramNotification implements ShouldQueue
 
     protected function sendTelegramMessage($message)
     {
-        Http::post("https://api.telegram.org/botYOUR_BOT_TOKEN/sendMessage", [
-            'chat_id' => 'YOUR_CHAT_ID',
+        Http::post("https://api.telegram.org/bot777987349:AAHrIYeWTKib6Q8ZxfrRy9om5V8estHD7-g/sendMessage", [
+            'chat_id' => '183396872',
             'text' => $message,
         ]);
     }
