@@ -1,9 +1,7 @@
 <?php
-
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
-
 
 use App\Events\FundsCredited;
 use App\Events\TransactionStatusUpdated;
@@ -95,10 +93,8 @@ class ExchangeService
         return null;
     }
 
-    use Illuminate\Support\Facades\DB;
-
     public function postOrder($validatedData) {
-        $data = ['status' => 'error', "message" => "Cannot get exchange rate"];
+        $data = ['status' => 'error', "code" => "109", "msg" => "Cannot get exchange rate"];
 
         try {
             $currencyId        = $validatedData['currency'];
@@ -108,13 +104,13 @@ class ExchangeService
             $targetProtocolId  = $validatedData['target_protocol'];
             $walletAddress     = $validatedData['wallet_address'];
             $email             = $validatedData['email'];
-            $stream            = $validatedData->all();
+            $stream            = $validatedData;
 
             // Fetch the wallet
             $wallet = $this->walletRepository->getFreeWallet($this->userId, $currencyId, $protocolId);
 
             if (!$wallet) {
-                return ['status' => 'error', 'message' => 'Failed to create wallet.'];
+                return ['status' => 'error', 'code' => 112,'msg' => 'Failed to create wallet.'];
             }
 
             $exchangeId = $wallet->account->exchange_id;
@@ -131,16 +127,14 @@ class ExchangeService
                 $transactionData = [
                     'wallet_id'      => $wallet->id,
                     'type'           => 'incoming',
-                    'status'         => 'pending',
+                    'status'         => 'created',
                     'amount'         => $amount,
                     'exchange_rate'  => $exchangeRate,
                     'expiry_time'    => now()->addMinutes(30),
                 ];
                 $transaction = $this->transactionRepository->create($transactionData);
 
-                // Fetch target currency and protocol
-                //$targetCurrency = $this->currencyRepository->get(['id' => $targetCurrencyId])->first();
-                //$targetProtocol = $this->protocolRepository->get(['id' => $targetProtocolId])->first();
+
 
                 if (!$targetCurrencyId || !$targetProtocolId) {
                     throw new \Exception('Invalid target currency or protocol.');
@@ -169,17 +163,46 @@ class ExchangeService
                         'wallet_address' => $wallet->wallet_token,
                         'received_amount'=> $amount * $exchangeRate,
                         'expiry_time'    => $transaction->expiry_time->toDateTimeString(),
+                        'hash'           => $order->hash,
                     ],
                 ];
             });
 
-            return response()->json($result);
+            return $result;
 
         } catch (\Exception $e) {
             // Handle exceptions and return an error response
             // Optionally log the exception: Log::error($e);
-            return response()->json(['status' => 'error', 'message' => $e->getMessage()]);
+            $orderId = $this->extractOrderIdFromMessage($e->getMessage());
+
+            if ($orderId) {
+                $existingOrder = $this->orderRepository->get($orderId);
+
+                if ($existingOrder) {
+                    return response()->json([
+                        'status' => 'error',
+                        "code" => 105,
+                        'msg' => 'An identical order already exists.',
+                        'data' => [
+                            'order_id' => $existingOrder->id,
+                            'wallet_address' => $existingOrder->transaction->wallet->wallet_token,
+                            'received_amount' => $existingOrder->amount * $existingOrder->current_rate, // Используйте текущую ставку существующего ордера
+                            'expiry_time' => $existingOrder->transaction->expiry_time,
+                            'hash' => $existingOrder->hash,
+                        ],
+                    ]);
+                }
+            }
         }
+    }
+
+    private function extractOrderIdFromMessage($message)
+    {
+
+        if (preg_match('/Order ID: (\d+)/', $message, $matches)) {
+            return (int) $matches[1];
+        }
+        return null;
     }
 
 
@@ -205,7 +228,7 @@ class ExchangeService
             ]);
 
         } else {
-            return ['status' => 'error', 'message' => 'Failed to create wallet.'];
+            return ['status' => 'error', "code" => 108,'msg' => 'Failed to create wallet.'];
         }
 
         return $wallet;
@@ -229,9 +252,11 @@ class ExchangeService
 
     public function checkPendingTransactions()
     {
+        $trans = Transaction::find(38);
+        $trans->status = "created";
+        $trans->save();
 
         $transactions = Transaction::whereNotIn('status', ['completed', 'failed', 'canceled'])->get();
-
 
         foreach ($transactions as $transaction) {
             $exchangeApiService = new ExchangeApiService($transaction->wallet->account);
@@ -242,23 +267,26 @@ class ExchangeService
             if ($history['status'] === 'success') {
                 foreach ($history['data'] as $exchangeTransaction) {
                     // Compare exchange data with our transaction
+
                     if ($this->isMatchingTransaction($exchangeTransaction, $transaction)) {
-                        $newStatus = $this->determineNewStatus($exchangeTransaction);
+                        $newStatus = $exchangeTransaction['status'];
 
                         // If the status has changed, update it and call the event
                         if ($transaction->status !== $newStatus) {
                             $transaction->status = $newStatus;
                             $transaction->save();
 
-                            if ($newStatus === 'completed' && $transaction->amount <= $exchangeTransaction['amount']) {
+                            if ($newStatus === 'completed' && (float)$transaction->amount <= (float)$exchangeTransaction['amount']) {
 
                                 $transaction->amount = $exchangeTransaction['amount'];
                                 $order = Order::where('transaction_id', $transaction->id)->first();
 
-                                $fromCurrencyName = Currency::find($transaction->wallet->currency_id)->name;
-                                $toCurrencyName = Currency::find($order->currency_id)->name;
+                                $fromCurrencyId = $transaction->wallet->currency_id;
+                                $toCurrencyId = $order->currency_id;
                                 $exchangeId = $transaction->wallet->account->exchange_id;
-                                $transaction->current_rate = $this->getExchangeRate($fromCurrencyName, $toCurrencyName, $exchangeId);
+
+                                $transaction->exchange_rate = $this->getExchangeRate($fromCurrencyId, $toCurrencyId, $exchangeId);
+
                                 $transaction->save();
 
                                 event(new FundsCredited($transaction)); // Trigger the funds credited event
@@ -280,7 +308,7 @@ class ExchangeService
      */
     protected function isMatchingTransaction($exchangeTransaction, $transaction)
     {
-        return $exchangeTransaction['id'] === $transaction->id &&
+        return $exchangeTransaction['wallet'] === $transaction->wallet->wallet_token &&
             $exchangeTransaction['amount'] == $transaction->amount &&
             $exchangeTransaction['status'] !== $transaction->status;
     }

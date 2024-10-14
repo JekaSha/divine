@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests;
+namespace App\Http\Requests\Exchange;
 
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -21,6 +21,7 @@ class PostOrderRequest extends FormRequest
             'target_currency'  => 'required|integer',
             'target_protocol'  => 'required|integer',
             'wallet_address'   => 'required|string',
+            'email'            => 'nullable|email',
         ];
     }
 
@@ -28,6 +29,7 @@ class PostOrderRequest extends FormRequest
     {
         return [
             'currency.required' => 'The currency field is required.',
+            'email.email'       => 'The email must be a valid email address.',
         ];
     }
 }

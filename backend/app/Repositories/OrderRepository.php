@@ -12,4 +12,18 @@ class OrderRepository
         return Order::create($data);
     }
 
+    public function get($identifier)
+    {
+
+        if (is_numeric($identifier)) {
+            return Order::with(['transaction', 'transaction.wallet'])
+                ->find($identifier);
+        } else {
+            return Order::with(['transaction', 'transaction.wallet'])
+                ->where('hash', $identifier)
+                ->first();
+        }
+    }
+
+
 }

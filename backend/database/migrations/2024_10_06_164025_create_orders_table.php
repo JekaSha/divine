@@ -43,9 +43,11 @@ return new class extends Migration
 
             $table->text('comment')->nullable();
 
+            $table->string('hash', 64);
+
             $table->timestamps();
 
-            // Индексы для оптимизации запросов
+            $table->unique('hash');
             $table->index('transaction_id');
             $table->index('user_id');
             $table->index('currency_id');

@@ -89,4 +89,16 @@ class ExchangeApiService {
         return $r;
     }
 
+    public function checkPair($fromCurrency, $toCurrency) {
+        $r = $this->api->checkPair($fromCurrency, $toCurrency);
+        return $r;
+    }
+
+    public function getOrderInfo($orderId, $pair) {
+
+        $r = $this->api->getOrderInfo($orderId, $pair);
+        return $r;
+
+    }
+
 }
