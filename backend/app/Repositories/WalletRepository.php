@@ -69,4 +69,14 @@ class WalletRepository
         return $wallet;
     }
 
+    public function create(array $data) : Wallet
+    {
+        return Wallet::create([
+            'wallet_token' => $data['wallet_token'],
+            'currency_id' => $data['currency_id'],
+            'protocol_id' => $data['protocol_id'],
+            'status' => $data['status'],
+        ]);
+    }
+
 }

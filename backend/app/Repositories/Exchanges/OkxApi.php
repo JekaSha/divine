@@ -183,6 +183,9 @@ class OkxApi implements ExchangeApiInterface
         $response = ['status' => 'error'];
         $r =  $this->sendRequest('POST', $url, $params);
         if ($r['code'] == 0) {
+            //sleep(2);
+            //$o = $this->getOrderInfo($r['data'][0]['ordId'], $from, $to);
+
             $response = ['status' => 'success',
                 "data" => [
                     "order_id" => $r['data'][0]['ordId'],
@@ -204,17 +207,42 @@ class OkxApi implements ExchangeApiInterface
 
     public function transferFunds($toAddress, $amount, $currency, $protocol)
     {
-        $url = "{$this->baseUrl}/asset/transfer";
+        $url = "{$this->baseUrl}/asset/withdrawal";
 
+        $fee = $this->getWithdrawalFee($currency, $protocol);
         $params = [
+            'from' => 'trading',
             'ccy' => $currency,
-            'amt' => $amount,
+            'amt' => (string)$amount,
             'dest' => '4',
-            'toAddr' => $toAddress,
-            'protocol' => $protocol
+            'toAddr' => trim($toAddress),
+           // 'chain' => strtoupper($currency."-".$protocol),
+            "chainName" => $protocol,
+            "fee" => $fee,
         ];
 
-        return $this->sendRequest('POST', $url, $params);
+print_R($params);
+        $r = $this->sendRequest('POST', $url, $params);
+dd($r);
+        $code = 801;
+        if ($r['code'] === 0) {
+            $data = [
+                'status'  => 'success',
+                "data" => [
+                    'amount' => $amount,
+                    'currency' => $currency,
+                    'protocol' => $protocol
+                ]
+            ];
+            return $data;
+        } elseif ($r['code'] == 58206) {
+            $code = 802; //low amount in wallet
+        } elseif ($r['code'] == 58207) {
+            $code = 803; //can't do transfer funds to this address
+        }
+
+        $r = ['status' => "error", "msg" => $r['msg'], "code" => $code];
+        return $r;
     }
 
 
@@ -351,18 +379,18 @@ class OkxApi implements ExchangeApiInterface
 ] // app/Repositories/Exchanges/OkxApi.php:300
 jekas@MacBook-A
      */
-    public function getOrderInfo($orderId, $instrument)
+    public function getOrderInfo($orderId, $from, $to)
     {
         $url = "{$this->baseUrl}/trade/order";
 
         $params = [
             'ordId' => $orderId,
-            'instId' => $instrument,
+            'instId' => $from."-".$to,
         ];
 
 
         $response = $this->sendRequest('GET', $url, $params);
-dd($response);
+
 
         if (isset($response['code']) && $response['code'] == '0') {
             return $response['data'][0];
@@ -373,6 +401,58 @@ dd($response);
             'message' => $response['msg'] ?? 'Failed to retrieve order information.',
         ];
     }
+
+    /*
+     * "data" => array:375 [
+    0 => array:25 [
+      "burningFeeRate" => ""
+      "canDep" => true
+      "canInternal" => true
+      "canWd" => true
+      "ccy" => "USDT"
+      "chain" => "USDT-TRC20"
+      "depQuotaFixed" => ""
+      "depQuoteDailyLayer2" => ""
+      "logoLink" => "https://static.coinall.ltd/cdn/oksupport/asset/currency/icon/usdt20240813135750.png"
+      "mainNet" => false
+      "maxFee" => "2"
+      "maxFeeForCtAddr" => "2"
+      "maxWd" => "32699700"
+      "minDep" => "0.00000001"
+      "minDepArrivalConfirm" => "19"
+      "minFee" => "1"
+      "minFeeForCtAddr" => "1"
+      "minWd" => "2"
+      "minWdUnlockConfirm" => "38"
+      "name" => "Tether"
+      "needTag" => false
+      "usedDepQuotaFixed" => ""
+      "usedWdQuota" => "0"
+      "wdQuota" => "10000000"
+      "wdTickSz" => "6"
+    ]
+
+     */
+    protected function getWithdrawalFee($currency, $protocol)
+    {
+        $url = "{$this->baseUrl}/asset/currencies";
+
+        $response = $this->sendRequest('GET', $url);
+
+        if (isset($response['code']) && $response['code'] === '0') {
+            foreach ($response['data'] as $currencyData) {
+                if ($currencyData['ccy'] === strtoupper($currency)) {
+                    $chain = str_replace($currency."-", "", $currencyData['chain']);
+
+                    if (strtolower($chain) == strtolower($protocol))
+                        return $currencyData['minFee'];
+                }
+            }
+        }
+
+        return '0.0';
+    }
+
 
 
 

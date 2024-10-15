@@ -9,20 +9,80 @@ class OrderRepository
 
     public function create(array $data)
     {
-        return Order::create($data);
+
+        $transactionId = $data['transaction_id'];
+        unset($data['transaction_id']);
+
+        $order = Order::create($data);
+
+        if (isset($transactionId)) {
+            $order->transactions()->attach($transactionId);
+        }
+
+        return $order;
     }
 
     public function get($identifier)
     {
 
-        if (is_numeric($identifier)) {
-            return Order::with(['transaction', 'transaction.wallet'])
-                ->find($identifier);
-        } else {
-            return Order::with(['transaction', 'transaction.wallet'])
-                ->where('hash', $identifier)
-                ->first();
+        $query = Order::query();
+
+        if (isset($filters['id'])) {
+            $query->where('id', $filters['id']);
         }
+
+        if (isset($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (isset($filters['transaction_type'])) {
+            $query->whereHas('transactions', function ($subQuery) use ($filters) {
+                $subQuery->where('type', $filters['transaction_type']);
+            });
+        }
+
+        if (isset($filters['hash'])) {
+            $query->where('hash', $filters['hash']);
+        }
+
+        if (isset($filters['transaction_type'])) {
+            $query->whereHas('transactions', function ($subQuery) use ($filters) {
+                $subQuery->where('type', $filters['transaction_type']);
+            });
+        }
+
+        // Фильтрация по статусу транзакции
+        if (isset($filters['transaction_status'])) {
+            $query->whereHas('transactions', function ($subQuery) use ($filters) {
+                $subQuery->where('status', $filters['transaction_status']);
+            });
+        }
+
+        if (isset($filters['transaction_id'])) {
+            $query->whereHas('transactions', function ($subQuery) use ($filters) {
+                $subQuery->where('id', $filters['transaction_id']);
+            });
+        }
+
+        return $query->with(['transactions', 'transactions.wallet'])->get();
+
+    }
+
+    public function getTransactionsByOrderId($orderId, $status = null)
+    {
+        $query = Order::find($orderId)->transactions();
+
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        return $query->get();
+    }
+
+    public function getOrderWithTransactions($orderId)
+    {
+        return Order::with(['transactions', 'transactions.wallet'])
+            ->find($orderId);
     }
 
 

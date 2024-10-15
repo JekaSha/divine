@@ -4,13 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Transaction;
 
 class Order extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'transaction_id',
         'status',
         'user_id',
         'amount',
@@ -35,14 +35,14 @@ class Order extends Model
         parent::boot();
 
         static::creating(function ($order) {
+
             $order->hash = $order->generateHash();
 
             if (static::where('hash', $order->hash)->exists()) {
-
                 $existingOrder = static::where('hash', $order->hash)->first();
-
                 throw new \Exception('An identical order already exists. Order ID: ' . $existingOrder->id);
             }
+
         });
     }
 
@@ -91,4 +91,11 @@ class Order extends Model
     {
         return $this->belongsTo(CurrencyProtocol::class);
     }
+
+    public function transactions()
+    {
+        return $this->belongsToMany(Transaction::class, 'order_transaction')
+            ->withTimestamps(); // Используйте withTimestamps() для автоматического обновления полей created_at и updated_at
+    }
+
 }

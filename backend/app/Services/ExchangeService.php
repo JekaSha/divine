@@ -134,8 +134,6 @@ class ExchangeService
                 ];
                 $transaction = $this->transactionRepository->create($transactionData);
 
-
-
                 if (!$targetCurrencyId || !$targetProtocolId) {
                     throw new \Exception('Invalid target currency or protocol.');
                 }
@@ -153,6 +151,7 @@ class ExchangeService
                     'email'          => $email,
                     'stream'         => $stream,
                 ];
+
                 $order = $this->orderRepository->create($orderData);
 
                 return [
@@ -176,7 +175,7 @@ class ExchangeService
             $orderId = $this->extractOrderIdFromMessage($e->getMessage());
 
             if ($orderId) {
-                $existingOrder = $this->orderRepository->get($orderId);
+                $existingOrder = $this->orderRepository->get(['id' => $orderId, "transaction_type" => "incoming"])->first();
 
                 if ($existingOrder) {
                     return response()->json([
@@ -185,9 +184,9 @@ class ExchangeService
                         'msg' => 'An identical order already exists.',
                         'data' => [
                             'order_id' => $existingOrder->id,
-                            'wallet_address' => $existingOrder->transaction->wallet->wallet_token,
-                            'received_amount' => $existingOrder->amount * $existingOrder->current_rate, // Используйте текущую ставку существующего ордера
-                            'expiry_time' => $existingOrder->transaction->expiry_time,
+                            'wallet_address' => $existingOrder->transactions->first()->wallet->wallet_token,
+                            'received_amount' => $existingOrder->amount * $existingOrder->current_rate,
+                            'expiry_time' => $existingOrder->transactions->first()->expiry_time,
                             'hash' => $existingOrder->hash,
                         ],
                     ]);
@@ -252,7 +251,7 @@ class ExchangeService
 
     public function checkPendingTransactions()
     {
-        $trans = Transaction::find(38);
+        $trans = Transaction::find(87);
         $trans->status = "created";
         $trans->save();
 
@@ -273,13 +272,16 @@ class ExchangeService
 
                         // If the status has changed, update it and call the event
                         if ($transaction->status !== $newStatus) {
+                            print_R($transaction->status . " = " .$newStatus);
                             $transaction->status = $newStatus;
                             $transaction->save();
+
+                            event(new TransactionStatusUpdated($transaction));
 
                             if ($newStatus === 'completed' && (float)$transaction->amount <= (float)$exchangeTransaction['amount']) {
 
                                 $transaction->amount = $exchangeTransaction['amount'];
-                                $order = Order::where('transaction_id', $transaction->id)->first();
+                                $order = $this->orderRepository->get(['transaction_id' => $transaction->id])->first(); //return Order witch has this transaction_id
 
                                 $fromCurrencyId = $transaction->wallet->currency_id;
                                 $toCurrencyId = $order->currency_id;
@@ -290,9 +292,9 @@ class ExchangeService
                                 $transaction->save();
 
                                 event(new FundsCredited($transaction)); // Trigger the funds credited event
-                            } else {
-                                event(new TransactionStatusUpdated($transaction));
                             }
+
+
 
                         }
 
