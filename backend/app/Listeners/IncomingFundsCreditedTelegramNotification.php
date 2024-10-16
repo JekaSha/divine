@@ -8,7 +8,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use App\Traits\TelegramNotifier;
 use Illuminate\Support\Facades\Log;
 
-class SendFundsCreditedTelegramNotification implements ShouldQueue
+class IncomingFundsCreditedTelegramNotification implements ShouldQueue
 {
     use InteractsWithQueue, TelegramNotifier;
 
@@ -19,7 +19,7 @@ class SendFundsCreditedTelegramNotification implements ShouldQueue
      */
     public function handle(FundsCredited $event)
     {
-        Log::debug('SendFundsCreditedTelegramNotification listener triggered.');
+        Log::debug('IncomingFundsCreditedTelegramNotification listener triggered.');
 
         $transaction = $event->transaction;
         $message = "Funds credited to transaction {$transaction->id}. Amount: {$transaction->amount}";

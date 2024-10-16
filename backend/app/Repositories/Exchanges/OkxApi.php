@@ -126,8 +126,68 @@ class OkxApi implements ExchangeApiInterface
         return $response['data'];
     }
 
-    protected function determineNewStatus($exchangeTransaction)
+    public function getWithdrawalHistory($currency = null, $limit = 100)
     {
+        $url = "{$this->baseUrl}/asset/withdrawal-history";
+
+        $params = [
+            'ccy' => $currency,
+            'limit' => $limit,
+        ];
+
+        $response = $this->sendRequest('GET', $url, $params);
+
+        if ($response['code'] == '0') {
+            foreach ($response['data'] as &$transaction) {
+                $data = $transaction;
+                $protocol = str_replace($transaction['ccy'] . "-", "", $transaction['chain']);
+                $status = $this->determineWithdrawalStatus($transaction);
+
+                $transaction = [
+                    'currency' => strtoupper($transaction['ccy']),
+                    'protocol' => strtoupper($protocol),
+                    'amount' => $transaction['amt'],
+                    "wallet" => $transaction['toAddr'],
+                    "txId" => $transaction['txId'],
+                    "time" => $transaction['ts'],
+                    "status" => $status,
+                    'source' => $data,
+                ];
+            }
+        }
+
+        return $response['data'];
+    }
+
+    protected function determineWithdrawalStatus($transaction)
+    {
+        switch ($transaction['state']) {
+            case '0':
+                return 'pending';      // Вывод в процессе
+            case '1':
+                return 'pending';      // В процессе обработки
+            case '2':
+                return 'failed';       // Неудачный вывод
+            case '3':
+                return 'pending';      // На проверке
+            case '4':
+                return 'pending';      // Проверка завершена
+            case '5':
+                return 'pending';      // Отправлено в блокчейн
+            case '6':
+                return 'completed';    // Успешный вывод
+            case '7':
+                return 'canceled';     // Отменено пользователем
+            case '8':
+                return 'rejected';     // Отклонено системой
+            default:
+                return 'unknown';      // Неизвестный статус
+        }
+    }
+
+
+    protected function determineNewStatus($exchangeTransaction) {
+    print_r("OKX-Status:".$exchangeTransaction['state']);
         switch ($exchangeTransaction['state']) {
             case '2':
                 return 'completed';
@@ -210,8 +270,10 @@ class OkxApi implements ExchangeApiInterface
         $url = "{$this->baseUrl}/asset/withdrawal";
 
         $fee = $this->getWithdrawalFee($currency, $protocol);
+
+        $this->transfer($currency, $amount+$fee);
+
         $params = [
-            'from' => 'trading',
             'ccy' => $currency,
             'amt' => (string)$amount,
             'dest' => '4',
@@ -219,19 +281,21 @@ class OkxApi implements ExchangeApiInterface
            // 'chain' => strtoupper($currency."-".$protocol),
             "chainName" => $protocol,
             "fee" => $fee,
+
         ];
 
 print_R($params);
         $r = $this->sendRequest('POST', $url, $params);
-dd($r);
+
         $code = 801;
-        if ($r['code'] === 0) {
+        if ($r['code'] == 0) {
             $data = [
                 'status'  => 'success',
                 "data" => [
                     'amount' => $amount,
                     'currency' => $currency,
-                    'protocol' => $protocol
+                    'protocol' => $protocol,
+                    "sentToAddress" => $toAddress,
                 ]
             ];
             return $data;
@@ -239,6 +303,8 @@ dd($r);
             $code = 802; //low amount in wallet
         } elseif ($r['code'] == 58207) {
             $code = 803; //can't do transfer funds to this address
+        } else {
+            print_r($r);
         }
 
         $r = ['status' => "error", "msg" => $r['msg'], "code" => $code];
@@ -452,6 +518,35 @@ jekas@MacBook-A
 
         return '0.0';
     }
+
+    public function transfer($currency, $amount, $fromAccount = "18", $toAccount = "6")
+    {
+        $url = "{$this->baseUrl}/asset/transfer";
+
+        $params = [
+            'ccy' => $currency,
+            'amt' => (string)$amount,
+            'from' => (string)$fromAccount, // Код аккаунта, с которого переводятся средства
+            'to' => (string)$toAccount,     // Код аккаунта, на который переводятся средства
+            // 'type' => '0', // Необязательный параметр, по умолчанию '0' для внутренних переводов
+        ];
+
+        $response = $this->sendRequest('POST', $url, $params);
+
+        if (isset($response['code']) && $response['code'] === '0') {
+            return [
+                'status' => 'success',
+                'data' => $response['data'][0],
+            ];
+        }
+
+        return [
+            'status' => 'error',
+            'message' => $response['msg'] ?? 'Transfer failed.',
+            'code' => $response['code'] ?? '',
+        ];
+    }
+
 
 
 

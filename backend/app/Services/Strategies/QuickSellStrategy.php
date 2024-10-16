@@ -4,6 +4,7 @@ namespace App\Services\Strategies;
 
 use App\Models\CurrencyProtocol;
 use App\Repositories\OrderRepository;
+use App\Services\ExchangeService;
 use App\Services\Strategies\StrategyInterface;
 use App\Models\Transaction;
 use App\Models\Currency;
@@ -13,6 +14,7 @@ use App\Repositories\WalletRepository;
 use App\Repositories\TransactionRepository;
 
 
+
 class QuickSellStrategy implements StrategyInterface
 {
     protected $exchangeApiService;
@@ -20,18 +22,22 @@ class QuickSellStrategy implements StrategyInterface
     protected $transactionRepository;
     protected $orderRepository;
     protected $walletRepository;
+    protected $exchangeService;
 
     public function __construct(
         TransactionRepository $transactionRepository,
         WalletRepository $walletRepository,
-        OrderRepository $orderRepository
+        OrderRepository $orderRepository,
+        ExchangeService $exchangeService,
     ) {
         $this->transactionRepository = $transactionRepository;
         $this->walletRepository = $walletRepository;
         $this->orderRepository = $orderRepository;
+        $this->exchangeService = $exchangeService;
     }
     public function execute(Transaction $transaction)
     {
+        $debug = false;
 
         $currencyId = $transaction->wallet->currency_id;
         $amount = $transaction->amount;
@@ -49,20 +55,26 @@ class QuickSellStrategy implements StrategyInterface
         $currencyName = Currency::find($currencyId)->name;
         $protocolName = CurrencyProtocol::find($protocolId)->name;
 
-        $toCurrencyName = Currency::find($order->currency_id)->name;
+        $toCurrencyId = $order->currency_id;
+        $toCurrencyName = Currency::find($toCurrencyId)->name;
+        $toProtocolId = $order->currency_id;
 
         if ($this->exchangeApiService->checkPair($currencyName, $toCurrencyName)) {
             $receivedAmount = $amount * $commission;
             $response = $marketSellResponse = $this->exchangeApiService->market('sell', $currencyName, $toCurrencyName, $amount);
         } else {
 
-            //$response = $marketSellResponse = $this->exchangeApiService->market('sell', $currencyName, "USDT", $amount);
-         //   print_r($response);
-            sleep(2);
+            if (!$debug) {
+                $response = $marketSellResponse = $this->exchangeApiService->market('sell', $currencyName, "USDT", $amount);
+                print_r($response);
+                sleep(2);
+            }
             $receivedAmount = $transaction->exchange_rate * $amount;
             $receivedAmount = $receivedAmount * $commission;
-            //$response = $marketBuyResponse = $this->exchangeApiService->market('buy', $toCurrencyName, "USDT", $receivedAmount);
-       //     print_r($response);
+            if (!$debug) {
+                $response = $marketBuyResponse = $this->exchangeApiService->market('buy', $toCurrencyName, "USDT", $receivedAmount);
+                print_r($response);
+            }
             $response['status'] = "success";
             sleep(2);
         }
@@ -70,38 +82,17 @@ class QuickSellStrategy implements StrategyInterface
 
         if ($response['status'] === 'success') {
 
-            //$receivedAmount = $marketSellResponse['data']['amount'];
-            //$netAmount = $receivedAmount;
+            $account = $transaction->wallet->account;
+            $this->exchangeService->sendCurrencyToAddress(
+                $account,
+                $order->wallet_address,
+                $receivedAmount,
+                $toCurrencyId,
+                $toProtocolId,
+                $transaction
+            );
 
-            $toProtocolName = CurrencyProtocol::find($order->protocol_id)->name;
-            print_r($receivedAmount);
-            $rTransfer = $this->exchangeApiService->transferFunds($order->wallet_address, $receivedAmount, $toCurrencyName, $toProtocolName);
-            print_r($rTransfer);
 
-            if ($rTransfer['status'] == 'success') {
-
-                $wallet = $this->walletRepository->create([
-                        'wallet_token' => $order->wallet_address,
-                        "currency_id" => $currencyId,
-                        "protocol_id" => $protocolId,
-                        "status" => "client",
-                    ]
-                );
-
-                $rate = $rTransfer['data']['current_rate'] ?? 0;
-
-                $transactionData = [
-                    'wallet_id'      => $wallet->id,
-                    'type'           => 'outgoing',
-                    'status'         => 'created',
-                    'amount'         => $rTransfer['data']['amount'],
-                    'exchange_rate'  => $rate,
-                    "order_id"       => $order->id,
-                ];
-
-                $transaction = $this->transactionRepository->create($transactionData);
-                print_r($transaction);
-            }
         } else {
             // Handle errors, such as logging or updating transaction status
         }

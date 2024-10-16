@@ -76,6 +76,7 @@ class WalletRepository
             'currency_id' => $data['currency_id'],
             'protocol_id' => $data['protocol_id'],
             'status' => $data['status'],
+            "account_id" => $data['account_id']
         ]);
     }
 

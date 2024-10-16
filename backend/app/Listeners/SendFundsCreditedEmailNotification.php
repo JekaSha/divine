@@ -2,7 +2,7 @@
 
 namespace App\Listeners;
 
-use App\Events\TransactionStatusUpdated;
+use App\Events\IncomingTransactionStatusUpdated;
 use App\Events\FundsCredited; // Import the new event
 use App\Repositories\OrderRepository;
 use Illuminate\Contracts\Queue\ShouldQueue;

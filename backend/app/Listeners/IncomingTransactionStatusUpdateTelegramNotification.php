@@ -2,27 +2,27 @@
 
 namespace App\Listeners;
 
-use App\Events\TransactionStatusUpdated;
+use App\Events\IncomingTransactionStatusUpdated;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use App\Traits\TelegramNotifier; // Импорт трейта
 use Illuminate\Support\Facades\Log;
 
-class SendTransactionStatusUpdateTelegramNotification implements ShouldQueue
+class IncomingTransactionStatusUpdateTelegramNotification implements ShouldQueue
 {
     use InteractsWithQueue, TelegramNotifier;
 
     /**
      *
-     * @param  \App\Events\TransactionStatusUpdated  $event
+     * @param  \App\Events\IncomingTransactionStatusUpdated  $event
      * @return void
      */
-    public function handle(TransactionStatusUpdated $event)
+    public function handle(IncomingTransactionStatusUpdated $event)
     {
-        Log::debug('SendTransactionStatusUpdateTelegramNotification listener triggered.');
+        Log::debug('IncomingTransactionStatusUpdateTelegramNotification listener triggered.');
 
         $transaction = $event->transaction;
-        $message = "Transaction {$transaction->id} status updated to {$transaction->status}";
+        $message = "INCOMING Transaction {$transaction->id} status updated to {$transaction->status}";
 
         $this->sendTelegramMessage($message); // Используем метод из трейта
     }

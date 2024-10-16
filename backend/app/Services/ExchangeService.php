@@ -2,9 +2,12 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 use App\Events\FundsCredited;
-use App\Events\TransactionStatusUpdated;
+use App\Events\FundsDebited;
+use App\Events\IncomingTransactionStatusUpdated;
+use App\Events\OutgoingTransactionStatusUpdated;
 use App\Models\Account;
 use App\Models\Currency;
 use App\Models\CurrencyExchange;
@@ -251,17 +254,42 @@ class ExchangeService
 
     public function checkPendingTransactions()
     {
-        $trans = Transaction::find(87);
-        $trans->status = "created";
-        $trans->save();
+        /*
+        $id = 92;
+        $trans = Transaction::find($id);
+        $r = $this->sendCurrencyToAddress($trans->wallet->account, "14fScWAuB2sSQ998E5Fvw3347awHJxTd2n6m7o7Cf8CS9tfY", "5", "2","1");
+        dd($r);
+        */
+        $id = 0;
+        if ($id) {
+            $trans = Transaction::find($id);
+            $trans->status = "created";
+            $trans->save();
+        }
 
-        $transactions = Transaction::whereNotIn('status', ['completed', 'failed', 'canceled'])->get();
+        $transactions = $this->transactionRepository->get(
+            [
+                '!status' => ['completed', 'failed', 'canceled'],
+                "!expired" => true
+            ]
+        );
 
+        $histories = [];
         foreach ($transactions as $transaction) {
-            $exchangeApiService = new ExchangeApiService($transaction->wallet->account);
+            $account = $transaction->wallet->account;
+            $exchangeApiService = new ExchangeApiService($account);
+
+            $accountId = $account->id;
 
             // Get transaction history from the exchange via exchangeApiService
-            $history = $exchangeApiService->getTransactionHistory();
+            if (!isset($histories[$accountId])) {
+
+                $history = $exchangeApiService->getTransactionHistory();
+                $histories[$accountId] = $history;
+                print_R($histories);
+            } else {
+                $history = $histories[$accountId];
+            }
 
             if ($history['status'] === 'success') {
                 foreach ($history['data'] as $exchangeTransaction) {
@@ -276,22 +304,36 @@ class ExchangeService
                             $transaction->status = $newStatus;
                             $transaction->save();
 
-                            event(new TransactionStatusUpdated($transaction));
+                            if ($transaction->type == 'incoming') {
 
-                            if ($newStatus === 'completed' && (float)$transaction->amount <= (float)$exchangeTransaction['amount']) {
+                                event(new IncomingTransactionStatusUpdated($transaction));
 
-                                $transaction->amount = $exchangeTransaction['amount'];
-                                $order = $this->orderRepository->get(['transaction_id' => $transaction->id])->first(); //return Order witch has this transaction_id
+                                if ($newStatus === 'completed'
+                                    && (float)$transaction->amount <= (float)$exchangeTransaction['amount']
+                                ) {
 
-                                $fromCurrencyId = $transaction->wallet->currency_id;
-                                $toCurrencyId = $order->currency_id;
-                                $exchangeId = $transaction->wallet->account->exchange_id;
+                                    $transaction->amount = $exchangeTransaction['amount'];
+                                    $order = $this->orderRepository->get(['transaction_id' => $transaction->id])->first(); //return Order witch has this transaction_id
 
-                                $transaction->exchange_rate = $this->getExchangeRate($fromCurrencyId, $toCurrencyId, $exchangeId);
+                                    $fromCurrencyId = $transaction->wallet->currency_id;
+                                    $toCurrencyId = $order->currency_id;
+                                    $exchangeId = $transaction->wallet->account->exchange_id;
 
-                                $transaction->save();
+                                    $transaction->exchange_rate = $this->getExchangeRate($fromCurrencyId, $toCurrencyId, $exchangeId);
 
-                                event(new FundsCredited($transaction)); // Trigger the funds credited event
+                                    $transaction->save();
+
+                                    event(new FundsCredited($transaction)); // Trigger the funds credited event
+                                }
+                            } elseif ($transaction->type == 'outgoing') {
+
+                                event(new OutgoingTransactionStatusUpdated($transaction));
+
+                                if ($newStatus === 'completed'
+                                    && (float)$transaction->amount <= (float)$exchangeTransaction['amount']
+                                ) {
+                                    event(new FundsDebited($transaction));
+                                }
                             }
 
 
@@ -312,7 +354,8 @@ class ExchangeService
     {
         return $exchangeTransaction['wallet'] === $transaction->wallet->wallet_token &&
             $exchangeTransaction['amount'] == $transaction->amount &&
-            $exchangeTransaction['status'] !== $transaction->status;
+            $exchangeTransaction['status'] !== $transaction->status &&
+            $exchangeTransaction['ts'] > strtotime($transaction->created_at);
     }
 
     /**
@@ -333,6 +376,79 @@ class ExchangeService
             default:
                 return 'unknown'; // Any other statuses can be handled as needed
         }
+    }
+
+    public function sendCurrencyToAddress(Account $account, $address, $amount, $currencyId, $protocolId, Transaction $transaction = null) {
+
+        $this->exchangeApiService = new ExchangeApiService($account);
+
+        $currencyName = $this->currencyRepository->all(['id' => $currencyId])->first()->name;
+        $protocolName = $this->protocolRepository->all(['id' => $protocolId])->first()->name;
+
+        if (isset($transaction->id)) {
+            $order = $this->orderRepository->get(['transaction_id' => $transaction->id])->first();
+        }
+
+        $rTransfer = $this->exchangeApiService->transferFunds($address, $amount, $currencyName, $protocolName);
+/*
+        $rTransfer['status'] = 'success';
+        $rTransfer['data'] = [];
+        $rTransfer['data']['amount'] = 100;
+*/
+        if ($rTransfer['status'] == 'success') {
+
+            DB::beginTransaction();
+
+            try {
+
+                $walletData = [
+                    'account_id' => $account->id,
+                    'wallet_token' => $address,
+                    "currency_id" => $currencyId,
+                    "protocol_id" => $protocolId,
+                    "status" => "client",
+                ];
+
+                $wallet = $this->walletRepository->create($walletData);
+
+
+                $rate = $rTransfer['data']['current_rate'] ?? 0;
+
+                $transactionData = [
+                    'wallet_id' => $wallet->id,
+                    'type' => 'outgoing',
+                    'status' => 'created',
+                    'amount' => $rTransfer['data']['amount'],
+                    'exchange_rate' => $rate,
+                ];
+
+                if (isset($order->id)) {
+                    $transactionData['order_id'] = $order->id;
+                }
+                //print_r($transactionData);
+                $transaction = $this->transactionRepository->create($transactionData);
+                //print_r($transaction);
+
+                DB::commit();
+
+                $r = ['status' => "success", "data" =>
+                    [
+                        'transfer' => $rTransfer,
+                        'transaction' => $transaction,
+                        'wallet' => $wallet
+                    ]
+                ];
+                return $r;
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+
+                Log::error('Error in sendCurrencyToAddress: ' . $e->getMessage());
+                throw $e;
+            }
+        }
+
+        return ['status' => 'error', 'msg' => 'Some error in sendCurrencyToAddress'];
     }
 
 
