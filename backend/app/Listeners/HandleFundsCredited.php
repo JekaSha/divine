@@ -7,6 +7,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use App\Models\Strategy;
 use App\Models\AccountStrategy;
+use Illuminate\Support\Facades\App;
 
 class HandleFundsCredited implements ShouldQueue
 {
@@ -25,7 +26,7 @@ class HandleFundsCredited implements ShouldQueue
         if ($strategy && class_exists($strategy->strategy->className)) {
             // Instantiate the strategy class
 
-            $strategyInstance = new $strategy->strategy->className();
+            $strategyInstance = App::make($strategy->strategy->className);
 
             // Execute the strategy with the transaction and event type
             $strategyInstance->execute($transaction);

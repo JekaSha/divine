@@ -101,4 +101,11 @@ class ExchangeApiService {
 
     }
 
+    public function transfer($currency, $amount) {
+
+        $r = $this->api->transfer($currency, $amount);
+        return $r;
+
+    }
+
 }

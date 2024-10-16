@@ -7,14 +7,16 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class TransactionStatusUpdated
+class FundsDebited
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public $transaction;
+    public $eventType;
 
-    public function __construct(Transaction $transaction)
+    public function __construct(Transaction $transaction, $eventType = 'FundsDebited')
     {
         $this->transaction = $transaction;
+        $this->eventType = $eventType;
     }
 }
