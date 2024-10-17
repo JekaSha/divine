@@ -37,7 +37,7 @@ class QuickSellStrategy implements StrategyInterface
     }
     public function execute(Transaction $transaction)
     {
-        $debug = false;
+        $debug = true;
 
         $currencyId = $transaction->wallet->currency_id;
         $amount = $transaction->amount;
@@ -57,7 +57,7 @@ class QuickSellStrategy implements StrategyInterface
 
         $toCurrencyId = $order->currency_id;
         $toCurrencyName = Currency::find($toCurrencyId)->name;
-        $toProtocolId = $order->currency_id;
+        $toProtocolId = $order->protocol_id;
 
         if ($this->exchangeApiService->checkPair($currencyName, $toCurrencyName)) {
             $receivedAmount = $amount * $commission;
@@ -83,7 +83,7 @@ class QuickSellStrategy implements StrategyInterface
         if ($response['status'] === 'success') {
 
             $account = $transaction->wallet->account;
-            $this->exchangeService->sendCurrencyToAddress(
+            $r = $this->exchangeService->sendCurrencyToAddress(
                 $account,
                 $order->wallet_address,
                 $receivedAmount,

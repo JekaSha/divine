@@ -22,7 +22,7 @@ class OrderRepository
         return $order;
     }
 
-    public function get($identifier)
+    public function get($filters)
     {
 
         $query = Order::query();
@@ -35,12 +35,6 @@ class OrderRepository
             $query->where('status', $filters['status']);
         }
 
-        if (isset($filters['transaction_type'])) {
-            $query->whereHas('transactions', function ($subQuery) use ($filters) {
-                $subQuery->where('type', $filters['transaction_type']);
-            });
-        }
-
         if (isset($filters['hash'])) {
             $query->where('hash', $filters['hash']);
         }
@@ -51,7 +45,6 @@ class OrderRepository
             });
         }
 
-        // Фильтрация по статусу транзакции
         if (isset($filters['transaction_status'])) {
             $query->whereHas('transactions', function ($subQuery) use ($filters) {
                 $subQuery->where('status', $filters['transaction_status']);
@@ -59,8 +52,9 @@ class OrderRepository
         }
 
         if (isset($filters['transaction_id'])) {
+            if (!is_array($filters['transaction_id'])) $filters['transaction_id'] = [$filters['transaction_id']];
             $query->whereHas('transactions', function ($subQuery) use ($filters) {
-                $subQuery->where('id', $filters['transaction_id']);
+                $subQuery->whereIn('transactions.id', $filters['transaction_id']);
             });
         }
 

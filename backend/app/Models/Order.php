@@ -95,7 +95,7 @@ class Order extends Model
     public function transactions()
     {
         return $this->belongsToMany(Transaction::class, 'order_transaction')
-            ->withTimestamps(); // Используйте withTimestamps() для автоматического обновления полей created_at и updated_at
+            ->withTimestamps();
     }
 
 }

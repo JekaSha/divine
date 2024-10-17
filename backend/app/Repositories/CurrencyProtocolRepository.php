@@ -22,9 +22,10 @@ class CurrencyProtocolRepository
             }
         }
 
-        // Фильтр по ID
+
         if (isset($filters['id'])) {
-            $query->whereIn('id', (array) $filters['id']); // Используем whereIn для возможности передачи нескольких ID
+            if (!is_array($filters['id'])) $filters['id'] = [$filters['id']];
+            $query->whereIn('id', $filters['id']);
         }
 
         return $query->get();

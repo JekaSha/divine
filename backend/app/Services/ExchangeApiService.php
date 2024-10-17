@@ -108,4 +108,19 @@ class ExchangeApiService {
 
     }
 
+    public function getOutgoingTransactionsHistory($currency, $protocol = null) {
+
+        $history = $this->api->getOutgoingTransactionsHistory($currency, $protocol = null);
+
+        return $history;
+        if ($history) {
+            return [
+                'status' => 'success',
+                'data' => $history,
+            ];
+        }
+
+        return ['status' => 'error', 'message' => 'Unable to fetch transaction history'];
+    }
+
 }
