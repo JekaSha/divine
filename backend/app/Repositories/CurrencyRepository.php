@@ -23,7 +23,8 @@ class CurrencyRepository
         }
 
         if (isset($filters['id'])) {
-            $query->whereIn('id', (array) $filters['id']);
+            if (!is_array($filters['id'])) $filters['id'] = [$filters['id']];
+            $query->whereIn('id', $filters['id']);
         }
 
         return $query->get();

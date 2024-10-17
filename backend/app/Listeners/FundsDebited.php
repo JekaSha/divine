@@ -8,7 +8,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use App\Traits\TelegramNotifier; // Импорт трейта
 use Illuminate\Support\Facades\Log;
 
-class OutgoingTransactionStatusUpdateTelegramNotification implements ShouldQueue
+class FundsDebited implements ShouldQueue
 {
     use InteractsWithQueue, TelegramNotifier;
 
@@ -17,12 +17,12 @@ class OutgoingTransactionStatusUpdateTelegramNotification implements ShouldQueue
      * @param  \App\Events\OutgoingTransactionStatusUpdated  $event
      * @return void
      */
-    public function handle(OutgoingTransactionStatusUpdated $event)
+    public function handle(FundsDebited $event)
     {
-        Log::debug('OutgoingTransactionStatusUpdateTelegramNotification listener triggered.');
+        Log::debug('FundsDebited listener triggered.');
 
         $transaction = $event->transaction;
-        $message = "OUTGOING Transaction {$transaction->id} status updated to {$transaction->status}";
+        $message = "OUTGOING Transaction  {$transaction->id} sent to address: {$transaction->wallet->wallet_token}";
 
         $this->sendTelegramMessage($message);
     }

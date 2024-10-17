@@ -8,6 +8,9 @@ use App\Events\FundsCredited;
 use App\Events\FundsDebited;
 use App\Events\IncomingTransactionStatusUpdated;
 use App\Events\OutgoingTransactionStatusUpdated;
+use App\Events\OutgoingTransactionCreated;
+
+
 use App\Models\Account;
 use App\Models\Currency;
 use App\Models\CurrencyExchange;
@@ -20,6 +23,7 @@ use App\Repositories\CurrencyRepository;
 use App\Repositories\WalletRepository;
 use App\Repositories\TransactionRepository;
 use App\Repositories\OrderRepository;
+
 
 
 class ExchangeService
@@ -252,7 +256,7 @@ class ExchangeService
         return $this->exchangeApiService->getTransactionHistory();
     }
 
-    public function checkPendingTransactions()
+    public function IncomingTransactionsCheck()
     {
         /*
         $id = 92;
@@ -273,7 +277,7 @@ class ExchangeService
                 "!expired" => true
             ]
         );
-
+//dd($transactions);
         $histories = [];
         foreach ($transactions as $transaction) {
             $account = $transaction->wallet->account;
@@ -347,15 +351,80 @@ class ExchangeService
         }
     }
 
+    public function OutgoingTransactionsCheck()
+    {
+
+        $transactions = $this->transactionRepository->get(
+            [
+                '!status' => ['completed', 'failed', 'canceled'],
+                'type' => 'outgoing'
+            ]
+        );
+
+
+        $histories = [];
+
+        foreach ($transactions as $transaction) {
+            $account = $transaction->wallet->account;
+            $exchangeApiService = new ExchangeApiService($account);
+
+            $accountId = $account->id;
+
+            $currency = $this->currencyRepository->all(['id' => $transaction->wallet->currency_id])->first()->name;
+
+            // Get transaction history from the exchange via exchangeApiService
+            if (!isset($histories[$accountId][$currency])) {
+
+                $history = $exchangeApiService->getOutgoingTransactionsHistory($currency);
+                $histories[$accountId][$currency] = $history;
+
+
+            } else {
+                $history = $histories[$accountId][$currency];
+            }
+
+            foreach ($history as $exchangeTransaction) {
+
+                if ($this->isMatchingOutgoingTransaction($currency, $exchangeTransaction, $transaction)) {
+
+                    if ($exchangeTransaction['status'] !== $transaction->status) {
+                        $transaction->status = $exchangeTransaction['status'];
+                        $transaction->save();
+
+                        event(new OutgoingTransactionStatusUpdated($transaction));
+
+                        if ($transaction->status == 'completed') {
+
+                            event(new FundsDebited($transaction));
+
+                        }
+                    }
+                    break;
+                }
+            }
+
+        }
+
+    }
+
+    protected function isMatchingOutgoingTransaction($currency, $exchangeTransaction, $transaction) {
+        return $exchangeTransaction['amount'] == $transaction->amount &&
+            $exchangeTransaction['wallet'] == $transaction->wallet->wallet_token &&
+            $exchangeTransaction['currency'] == $currency &&
+            $exchangeTransaction['time'] > strtotime($transaction->created_at);
+    }
+
+
     /**
      * Compares a transaction from the exchange with our local transaction.
      */
     protected function isMatchingTransaction($exchangeTransaction, $transaction)
     {
+
         return $exchangeTransaction['wallet'] === $transaction->wallet->wallet_token &&
             $exchangeTransaction['amount'] == $transaction->amount &&
             $exchangeTransaction['status'] !== $transaction->status &&
-            $exchangeTransaction['ts'] > strtotime($transaction->created_at);
+            $exchangeTransaction['time'] > strtotime($transaction->created_at);
     }
 
     /**
@@ -382,8 +451,8 @@ class ExchangeService
 
         $this->exchangeApiService = new ExchangeApiService($account);
 
-        $currencyName = $this->currencyRepository->all(['id' => $currencyId])->first()->name;
-        $protocolName = $this->protocolRepository->all(['id' => $protocolId])->first()->name;
+        $currencyName = $this->currencyRepository->all(['id' => [$currencyId]])->first()->name;
+        $protocolName = $this->protocolRepository->all(['id' => [$protocolId]])->first()->name;
 
         if (isset($transaction->id)) {
             $order = $this->orderRepository->get(['transaction_id' => $transaction->id])->first();
@@ -438,6 +507,9 @@ class ExchangeService
                         'wallet' => $wallet
                     ]
                 ];
+
+                event(new OutgoingTransactionCreated($transaction));
+
                 return $r;
 
             } catch (\Exception $e) {

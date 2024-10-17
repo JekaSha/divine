@@ -35,7 +35,11 @@ class TransactionsCheck extends Command
      */
     public function handle()
     {
-        $this->exchangeService->checkPendingTransactions();
-        $this->info('Checked pending transactions and updated statuses if necessary.');
+
+
+        $this->exchangeService->OutgoingTransactionsCheck();
+        $this->info('Checked Outgoing transactions and updated statuses if necessary.');
+        //$this->exchangeService->IncomingTransactionsCheck();
+        //$this->info('Checked pending transactions and updated statuses if necessary.');
     }
 }

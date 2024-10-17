@@ -114,7 +114,7 @@ class OkxApi implements ExchangeApiInterface
                     'amount' => $transaction['amt'],
                     "wallet" => $transaction['to'],
                     "txId" => $transaction['txId'],
-                    "time" => $transaction['ts'],
+                    "time" => $transaction['ts']/1000,
                     "status" => $status,
                     'source' => $data,
                 ];
@@ -124,6 +124,47 @@ class OkxApi implements ExchangeApiInterface
         }
 
         return $response['data'];
+    }
+
+    public function getOutgoingTransactionsHistory($currency, $protocol = null, $limit = 100) {
+
+        $url = "{$this->baseUrl}/asset/withdrawal-history";
+        $params = [
+            'ccy' => $currency,
+            'limit' => $limit,
+        ];
+
+        $response = $this->sendRequest('GET', $url, $params);
+
+        if ($response['code'] == '0') {
+            if (count($response['data']) > 0) {
+
+                foreach ($response['data'] as &$transaction) {
+                    $data = $transaction;
+                    $protocol = str_replace($transaction['ccy'] . "-", "", $transaction['chain']);
+                    $status = $this->determineNewStatus($transaction);
+
+                    $transaction = [
+                        'currency' => strtoupper($transaction['ccy']),
+                        'protocol' => strtoupper($protocol),
+                        'amount' => $transaction['amt'],
+                        "wallet" => $transaction['to'],
+                        "txId" => $transaction['txId'],
+                        "time" => $transaction['ts'] / 1000,
+                        "status" => $status,
+                        'source' => $data,
+                    ];
+
+                    $r[] = $transaction;
+                }
+            } else {
+
+                return [];
+
+            }
+        }
+
+        return $r;
     }
 
     public function getWithdrawalHistory($currency = null, $limit = 100)
@@ -151,7 +192,9 @@ class OkxApi implements ExchangeApiInterface
                     "txId" => $transaction['txId'],
                     "time" => $transaction['ts'],
                     "status" => $status,
+                    'fee' => $transaction['fee'],
                     'source' => $data,
+
                 ];
             }
         }
@@ -161,6 +204,7 @@ class OkxApi implements ExchangeApiInterface
 
     protected function determineWithdrawalStatus($transaction)
     {
+        print("DT:".$transaction['state']);
         switch ($transaction['state']) {
             case '0':
                 return 'pending';      // Вывод в процессе
@@ -187,8 +231,10 @@ class OkxApi implements ExchangeApiInterface
 
 
     protected function determineNewStatus($exchangeTransaction) {
-    print_r("OKX-Status:".$exchangeTransaction['state']);
+
         switch ($exchangeTransaction['state']) {
+            case '0':
+                return "detected";
             case '2':
                 return 'completed';
             case '3':

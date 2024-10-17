@@ -32,10 +32,6 @@ class TransactionRepository
             $query->where('id', $filters['id']);
         }
 
-        if (isset($filters['id'])) {
-            return $query->with('orders')->find($filters['id']);
-        }
-
         if (isset($filters['status'])) {
             $query->whereIn('status', $filters['status']);
         }
@@ -55,6 +51,7 @@ class TransactionRepository
         }
 
         if (isset($filters['type'])) {
+            if (!is_array($filters['type'])) $filters['type'] = [$filters['type']];
             $query->whereIn('type', $filters['type']);
         }
 
