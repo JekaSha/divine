@@ -35,7 +35,9 @@ class Transaction extends Model
      */
     public function order()
     {
-        return $this->hasOne(Order::class);
+        return $this->belongsToMany(Order::class, 'order_transaction')
+            ->using(OrderTransaction::class)
+            ->withTimestamps();
     }
 
     public function orders()

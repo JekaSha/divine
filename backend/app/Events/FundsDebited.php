@@ -14,7 +14,7 @@ class FundsDebited
     public $transaction;
     public $eventType;
 
-    public function __construct(Transaction $transaction, $eventType = 'FundsDebited')
+    public function __construct(Transaction $transaction, $eventType = 'FundsDebitedCallExternalService')
     {
         $this->transaction = $transaction;
         $this->eventType = $eventType;

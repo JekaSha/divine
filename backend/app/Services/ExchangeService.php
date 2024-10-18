@@ -2,6 +2,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 use App\Events\FundsCredited;
@@ -258,19 +259,19 @@ class ExchangeService
 
     public function IncomingTransactionsCheck()
     {
-        /*
-        $id = 92;
+/*
+        $id = 98;
         $trans = Transaction::find($id);
-        $r = $this->sendCurrencyToAddress($trans->wallet->account, "14fScWAuB2sSQ998E5Fvw3347awHJxTd2n6m7o7Cf8CS9tfY", "5", "2","1");
+        $r = $this->callExternalService($trans, 'received');
         dd($r);
-        */
+
         $id = 0;
         if ($id) {
             $trans = Transaction::find($id);
             $trans->status = "created";
             $trans->save();
         }
-
+*/
         $transactions = $this->transactionRepository->get(
             [
                 '!status' => ['completed', 'failed', 'canceled'],
@@ -310,6 +311,10 @@ class ExchangeService
 
                             if ($transaction->type == 'incoming') {
 
+                                $order = Order::find($transaction->order->id);
+                                $order->status = "received";
+                                $order->save();
+
                                 event(new IncomingTransactionStatusUpdated($transaction));
 
                                 if ($newStatus === 'completed'
@@ -329,19 +334,7 @@ class ExchangeService
 
                                     event(new FundsCredited($transaction)); // Trigger the funds credited event
                                 }
-                            } elseif ($transaction->type == 'outgoing') {
-
-                                event(new OutgoingTransactionStatusUpdated($transaction));
-
-                                if ($newStatus === 'completed'
-                                    && (float)$transaction->amount <= (float)$exchangeTransaction['amount']
-                                ) {
-                                    event(new FundsDebited($transaction));
-                                }
                             }
-
-
-
                         }
 
 
@@ -391,12 +384,16 @@ class ExchangeService
                         $transaction->status = $exchangeTransaction['status'];
                         $transaction->save();
 
+
                         event(new OutgoingTransactionStatusUpdated($transaction));
 
                         if ($transaction->status == 'completed') {
 
-                            event(new FundsDebited($transaction));
+                            $order = $transaction->order->first();
+                            $order->status = "completed";
+                            $order->save();
 
+                            event(new FundsDebited($transaction));
                         }
                     }
                     break;
@@ -521,6 +518,39 @@ class ExchangeService
         }
 
         return ['status' => 'error', 'msg' => 'Some error in sendCurrencyToAddress'];
+    }
+
+    public function callExternalService(Transaction $transaction, $status) {
+
+        $stream = $transaction->wallet->account->stream;
+
+        if (isset($stream['service_external']) &&
+            ($stream['service_external']['host'] && $stream['service_external']['api_key'])) {
+            $serviceExternal =
+                [
+                    'host' => $stream['service_external']['host'],
+                    'api' => $stream['service_external']['api_key'],
+                ];
+            Log::info("Send request to {$serviceExternal['host']}");
+
+            if ($transaction->order->first()->stream['external_order_id']) {
+
+                try {
+                    $r = Http::withHeaders(['api_key' => $serviceExternal['api']])->post("https://" . $serviceExternal['host'] . "/api/funds-debited", [
+                        'transaction_id' => $transaction->id,
+                        'order_id' => $transaction->order->first()->stream['external_order_id'],
+                        'status' => $status,
+                    ]);
+                    return $r;
+                }  catch (\Exception $e) {
+                    Log::error($e->getMessage());
+                }
+            } else {
+                Log::error("Error external order id in: {$transaction->order->first()->id}");
+            }
+        }
+
+
     }
 
 
