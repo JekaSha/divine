@@ -1,7 +1,8 @@
 import axios from 'axios';
+console.log('Backend API URL:', process.env.VUE_APP_BACKEND_APP);
 
 const instance = axios.create({
-    baseURL: "http://localhost:8000/api", // Используем базовый URL из .env
+    baseURL: process.env.VUE_APP_BACKEND_APP+"/api", // Используем базовый URL из .env
     timeout: 10000, // Установите таймаут, если нужно
 });
 
