@@ -311,7 +311,7 @@ class ExchangeService
 
                             if ($transaction->type == 'incoming') {
 
-                                $order = Order::find($transaction->order->id);
+                                $order = Order::find($transaction->order->first()->id);
                                 $order->status = "received";
                                 $order->save();
 
@@ -405,10 +405,11 @@ class ExchangeService
     }
 
     protected function isMatchingOutgoingTransaction($currency, $exchangeTransaction, $transaction) {
-        return $exchangeTransaction['amount'] == $transaction->amount &&
+
+        return (float)$exchangeTransaction['amount'] == (float)$transaction->amount &&
             $exchangeTransaction['wallet'] == $transaction->wallet->wallet_token &&
             $exchangeTransaction['currency'] == $currency &&
-            $exchangeTransaction['time'] > strtotime($transaction->created_at);
+            $exchangeTransaction['time'] >= strtotime($transaction->created_at);
     }
 
 
@@ -533,7 +534,7 @@ class ExchangeService
                 ];
             Log::info("Send request to {$serviceExternal['host']}");
 
-            if ($transaction->order->first()->stream['external_order_id']) {
+            if (isset($transaction->order->first()->stream['external_order_id'])) {
 
                 try {
                     $r = Http::withHeaders(['api_key' => $serviceExternal['api']])->post("https://" . $serviceExternal['host'] . "/api/funds-debited", [

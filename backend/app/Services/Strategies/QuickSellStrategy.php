@@ -37,7 +37,7 @@ class QuickSellStrategy implements StrategyInterface
     }
     public function execute(Transaction $transaction)
     {
-        $debug = true;
+        $debug = false;
 
         $currencyId = $transaction->wallet->currency_id;
         $amount = $transaction->amount;
@@ -65,6 +65,7 @@ class QuickSellStrategy implements StrategyInterface
         } else {
 
             if (!$debug) {
+                sleep(5); //wait for deposited fully completed.
                 $response = $marketSellResponse = $this->exchangeApiService->market('sell', $currencyName, "USDT", $amount);
                 print_r($response);
                 sleep(2);
