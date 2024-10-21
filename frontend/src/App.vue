@@ -1,23 +1,25 @@
 <template>
-  <v-app>
-    <v-main>
-      <ExchangeForm />
-    </v-main>
-  </v-app>
+	<v-app>
+		<v-main>
+			<ExchangeForm />
+		</v-main>
+	</v-app>
 </template>
 
 <script>
 import ExchangeForm from './components/ExchangeForm.vue'
 
 export default {
-  name: 'App',
+	name: 'App',
 
-  components: {
-	  ExchangeForm,
-  },
+	components: {
+		ExchangeForm,
+	},
 
-  data: () => ({
-    //
-  }),
+	data() {
+		return {
+			
+		};
+	},
 }
 </script>

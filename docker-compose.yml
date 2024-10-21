@@ -49,7 +49,7 @@ services:
     networks:
       - app-network
     ports:
-      - "3306:3306"
+      - "3307:3306"
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin

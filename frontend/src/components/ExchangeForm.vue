@@ -239,17 +239,17 @@ export default {
 
 	watch: {
 
-		selectedCurrency(newValue) {
+		selectedCurrency() {
 			this.receivedAmount = null;
 			this.isRateFetched = false;
 			this.fetchReceivedAmount();
 		},
-		amount(newValue) {
+		amount() {
 			this.receivedAmount = null;
 			this.isRateFetched = false;
 			this.fetchReceivedAmount();
 		},
-		targetCurrency(newValue) {
+		targetCurrency() {
 			this.receivedAmount = null;
 			this.isRateFetched = false;
 			this.fetchReceivedAmount();
