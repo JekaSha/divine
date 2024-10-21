@@ -71,7 +71,7 @@
 				<v-card>
 					<v-card-title>Подтверждение транзакции</v-card-title>
 					<v-card-text>
-						<p>Адрес кошелька: <strong>{{ walletAddress }}</strong></p>
+						<p>Адрес кошелька: <strong>{{ toWalletAddress }}</strong></p>
 						<p>Сумма для отправки: <strong>{{ amount }}</strong></p>
 						<p>Сумма, которую вы получите: <strong>{{ receivedAmount }}</strong></p>
 						<p>Время действия транзакции: <strong>{{ expiryTime }}</strong></p>
@@ -107,6 +107,7 @@ export default {
 			rate: 0,
 			isRateFetched: false,
 			showConfirmationModal: false,
+			toWalletAddress: '',
 		};
 	},
 
@@ -199,7 +200,7 @@ export default {
 				const { wallet_address, received_amount, expiry_time } = response.data.data;
 
 				// Step 3: Show the information in a modal
-				this.walletAddress = wallet_address;
+				this.toWalletAddress = wallet_address;
 				this.receivedAmount = received_amount;
 				this.expiryTime = expiry_time;
 
