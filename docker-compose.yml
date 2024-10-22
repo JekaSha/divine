@@ -8,9 +8,6 @@ services:
       - ./backend/storage:/var/www/html/storage
     networks:
       - app-network
-    command: >
-      sh -c "php artisan config:clear && php-fpm"
-      sh -c "php artisan config:cache && php-fpm"
 
   vue:
     build:
