@@ -17,7 +17,14 @@ class AccountsTableSeeder extends Seeder
             'description' => 'First',
             'api_key' => 'c139de93-9e40-4c76-a9c9-36ad5607d058',
             'api_secret' => 'C5146E61ADB600E4F0A5A8A07F54F69D7',
-            'stream' => ['passphrase' => '!MaxObmin123'],
+            'stream' => [
+                'passphrase' => '!MaxObmin123',
+                'service_external' => [
+                    'host' => 'https://maxobmin.12q.dev',
+                    'api_key' => 'xxx4'
+                ],
+                'commission_convert_percent' => '8'
+            ],
             'status' => 'active',
         ]);
     }
