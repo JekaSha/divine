@@ -17,11 +17,15 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             UsersTableSeeder::class,
-            ExchangesTableSeeder::class,
             AccountsTableSeeder::class,
-            CurrenciesTableSeeder::class,
             CurrencyProtocolsTableSeeder::class,
+            ExchangesTableSeeder::class,
+            CurrenciesTableSeeder::class,
+            WalletsTableSeeder::class,
+            CurrencyExchangeTableSeeder::class,
+            AccountStrategyTableSeeder::class,
+            StrategiesTableSeeder::class,
         ]);
-
+        
     }
 }
