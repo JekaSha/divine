@@ -44,7 +44,6 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique('hash');
-            $table->index('transaction_id');
             $table->index('user_id');
             $table->index('currency_id');
             $table->index('protocol_id');
