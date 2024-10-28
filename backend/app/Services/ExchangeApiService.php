@@ -89,8 +89,8 @@ class ExchangeApiService {
         return $r;
     }
 
-    public function checkPair($fromCurrency, $toCurrency) {
-        $r = $this->api->checkPair($fromCurrency, $toCurrency);
+    public function checkPair(&$fromCurrency, &$toCurrency, &$pair) {
+        $r = $this->api->checkPair($fromCurrency, $toCurrency, $pair);
         return $r;
     }
 

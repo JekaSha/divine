@@ -17,7 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('currency_id');
             $table->unsignedBigInteger('protocol_id');
             $table->string('wallet_token',128);
-            $table->enum('status', ['active', 'stop', 'system'])->default('active');
+            $table->enum('status', ['active', 'stop', 'system', 'client'])->default('active');
             $table->timestamps();
 
             $table->foreign('account_id')->references('id')->on('accounts')->onDelete('cascade');

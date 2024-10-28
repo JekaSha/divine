@@ -13,6 +13,8 @@ use App\Models\Order;
 use App\Repositories\WalletRepository;
 use App\Repositories\TransactionRepository;
 
+use Illuminate\Support\Facades\Log;
+
 
 
 class QuickSellStrategy implements StrategyInterface
@@ -45,9 +47,10 @@ class QuickSellStrategy implements StrategyInterface
 
         $this->exchangeApiService = new ExchangeApiService($transaction->wallet->account);
 
-        $commission = 1;
+
+        $partner_commission = 1;
         if ($com = $transaction->wallet->account->stream['commission_convert_percent']) {
-            $commission = 1 - $com/100;
+            $partner_commission = 1 - $com/100;
         }
 
         $order = $this->orderRepository->get(['transaction_id' => $transaction->id])->first();
@@ -59,30 +62,60 @@ class QuickSellStrategy implements StrategyInterface
         $toCurrencyName = Currency::find($toCurrencyId)->name;
         $toProtocolId = $order->protocol_id;
 
-        if ($this->exchangeApiService->checkPair($currencyName, $toCurrencyName)) {
-            $receivedAmount = $amount * $commission;
-            $response = $marketSellResponse = $this->exchangeApiService->market('sell', $currencyName, $toCurrencyName, $amount);
+        $exchangeId = $transaction->wallet->account->exchange_id;
+
+        Log::info("currency:", ['currencyId' => $currencyId, "toCurrencyId" => $toCurrencyId]);
+        $exchangeRate = $this->exchangeService->getExchangeRate($currencyId, $toCurrencyId, $exchangeId);
+
+        $pair = "";
+        $tmpCurrentName = $currencyName;
+        $tmpToCurrenyName = $toCurrencyName;
+        $pairExists = $this->exchangeApiService->checkPair($currencyName, $toCurrencyName, $pair);
+        Log::info($pairExists, ['currencyName' => $currencyName, 'toCurrencyName' => $toCurrencyName]);
+        if ($pairExists) {
+            Log::info('Pair Exists:', ['from' => $currencyName, 'to' => $toCurrencyName]);
+
+            $receivedAmount = $amount * $exchangeRate * $partner_commission;
+            $side = "sell";
+            if ($tmpCurrentName == $toCurrencyName) {
+                $side = "buy";
+                ///$amount = $receivedAmount;//$amount * $partner_commission;
+
+                $currencyName = $toCurrencyName;
+                $toCurrencyName = $tmpToCurrenyName;
+            } else {
+
+            }
+            $response = $marketSellResponse = $this->exchangeApiService->market($side, $currencyName, $toCurrencyName, $amount);
+
+            Log::info("Pair One change:",$response);
         } else {
 
+            Log::Info('SELL MARKET: '. $currencyName);
             if (!$debug) {
                 sleep(5); //wait for deposited fully completed.
                 $response = $marketSellResponse = $this->exchangeApiService->market('sell', $currencyName, "USDT", $amount);
-                print_r($response);
+                Log::info($response);
                 sleep(2);
             }
-            $receivedAmount = $transaction->exchange_rate * $amount;
-            $receivedAmount = $receivedAmount * $commission;
+
+            $receivedAmount = $exchangeRate * $amount * $partner_commission;
+            Log::Info('BUY MARKET: '. $toCurrencyName);
             if (!$debug) {
                 $response = $marketBuyResponse = $this->exchangeApiService->market('buy', $toCurrencyName, "USDT", $receivedAmount);
-                print_r($response);
+                Log::info($response);
             }
             $response['status'] = "success";
             sleep(2);
         }
 
+        if ($debug) {
+            $response['status'] = "success";
+        }
 
         if ($response['status'] === 'success') {
 
+            Log::info("From: $currencyName = $amount" . "| To: $toCurrencyName = ".$receivedAmount);
             $account = $transaction->wallet->account;
             $r = $this->exchangeService->sendCurrencyToAddress(
                 $account,

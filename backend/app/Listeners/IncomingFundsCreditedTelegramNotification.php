@@ -22,7 +22,9 @@ class IncomingFundsCreditedTelegramNotification implements ShouldQueue
         Log::debug('IncomingFundsCreditedTelegramNotification listener triggered.');
 
         $transaction = $event->transaction;
+        $this->account = $transaction->wallet->account;
         $message = "Funds credited to transaction {$transaction->id}. Amount: {$transaction->amount}";
+
 
         $this->sendTelegramMessage($message); //use method from trait
     }
