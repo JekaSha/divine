@@ -10,6 +10,7 @@ use App\Events\FundsDebited;
 use App\Events\IncomingTransactionStatusUpdated;
 use App\Events\OutgoingTransactionStatusUpdated;
 use App\Events\OutgoingTransactionCreated;
+use App\Events\OrderCreated;
 
 
 use App\Models\Account;
@@ -138,7 +139,7 @@ class ExchangeService
                     'status'         => 'created',
                     'amount'         => $amount,
                     'exchange_rate'  => $exchangeRate,
-                    'expiry_time'    => now()->addMinutes(30),
+                    'expiry_time'    => now()->addMinutes(15),
                 ];
                 $transaction = $this->transactionRepository->create($transactionData);
 
@@ -162,13 +163,19 @@ class ExchangeService
 
                 $order = $this->orderRepository->create($orderData);
 
+                $partner_commission = 1;
+                if (isset($wallet->account->stream['commission_convert_percent'])) {
+                    $partner_commission = 1 - ($wallet->account->stream['commission_convert_percent'] / 100);
+                }
+
+                event(new OrderCreated($order));
                 return [
                     'status' => 'success',
                     'data'   => [
                         'transaction_id' => $transaction->id,
                         'order_id'       => $order->id,
                         'wallet_address' => $wallet->wallet_token,
-                        'received_amount'=> $amount * $exchangeRate,
+                        'received_amount'=> $amount * $exchangeRate * $partner_commission,
                         'expiry_time'    => $transaction->expiry_time->toDateTimeString(),
                         'hash'           => $order->hash,
                     ],
@@ -181,9 +188,12 @@ class ExchangeService
             // Handle exceptions and return an error response
             // Optionally log the exception: Log::error($e);
             $orderId = $this->extractOrderIdFromMessage($e->getMessage());
-
+            Log::info('order exists:'.$orderId);
+            //$order = Order::find($orderId);
+            //event(new OrderCreated($order));
             if ($orderId) {
                 $existingOrder = $this->orderRepository->get(['id' => $orderId, "transaction_type" => "incoming"])->first();
+
 
                 if ($existingOrder) {
                     return response()->json([
@@ -328,6 +338,7 @@ class ExchangeService
                                     $toCurrencyId = $order->currency_id;
                                     $exchangeId = $transaction->wallet->account->exchange_id;
 
+                                    Log::info("currency ES:", ['fromCurrencyId' => $fromCurrencyId, "toCurrencyId" => $toCurrencyId]);
                                     $transaction->exchange_rate = $this->getExchangeRate($fromCurrencyId, $toCurrencyId, $exchangeId);
 
                                     $transaction->save();
@@ -356,7 +367,7 @@ class ExchangeService
 
 
         $histories = [];
-
+      //  Log::info(print_r($transactions->toArray(),1));
         foreach ($transactions as $transaction) {
             $account = $transaction->wallet->account;
             $exchangeApiService = new ExchangeApiService($account);
@@ -369,6 +380,7 @@ class ExchangeService
             if (!isset($histories[$accountId][$currency])) {
 
                 $history = $exchangeApiService->getOutgoingTransactionsHistory($currency);
+               // Log::info($history);
                 $histories[$accountId][$currency] = $history;
 
 
@@ -377,7 +389,7 @@ class ExchangeService
             }
 
             foreach ($history as $exchangeTransaction) {
-
+//Log::info($exchangeTransaction['amount']. " == {$transaction->id}: ". $transaction->amount);
                 if ($this->isMatchingOutgoingTransaction($currency, $exchangeTransaction, $transaction)) {
 
                     if ($exchangeTransaction['status'] !== $transaction->status) {
@@ -457,6 +469,7 @@ class ExchangeService
         }
 
         $rTransfer = $this->exchangeApiService->transferFunds($address, $amount, $currencyName, $protocolName);
+        Log::info('TransferFunds:', $rTransfer);
 /*
         $rTransfer['status'] = 'success';
         $rTransfer['data'] = [];
@@ -485,7 +498,7 @@ class ExchangeService
                     'wallet_id' => $wallet->id,
                     'type' => 'outgoing',
                     'status' => 'created',
-                    'amount' => $rTransfer['data']['amount'],
+                    'amount' => $amount,
                     'exchange_rate' => $rate,
                 ];
 

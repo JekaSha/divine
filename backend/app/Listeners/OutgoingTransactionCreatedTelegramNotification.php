@@ -22,6 +22,7 @@ class OutgoingTransactionCreatedTelegramNotification implements ShouldQueue
         Log::debug('OutgoingTransactionCreated listener triggered.');
 
         $transaction = $event->transaction;
+        $this->account = $transaction->wallet->account;
         $message = "OUTGOING Transaction {$transaction->id} created";
 
         $this->sendTelegramMessage($message);

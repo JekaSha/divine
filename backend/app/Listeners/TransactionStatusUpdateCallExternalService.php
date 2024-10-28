@@ -22,10 +22,8 @@ class TransactionStatusUpdateCallExternalService implements ShouldQueue
     {
         $transaction = $event->transaction;
         print_r('updateTransactionStatus');
-        $r = Http::post("https://".env("OBMIN_HOST")."/api/update-status", [
-            'transaction_id' => $transaction->id,
-            'status' => $transaction->status,
-        ]);
+
+        //$this->callExternalService($transaction);
     }
 
 }

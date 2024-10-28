@@ -4,10 +4,14 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Services\ExchangeService;
+use App\Traits\TelegramNotifier;
+use App\Models\Account;
+use Illuminate\Support\Facades\Log;
 
 
 class TransactionsCheck extends Command
 {
+    use TelegramNotifier;
     /**
      * The name and signature of the console command.
      *
@@ -35,6 +39,7 @@ class TransactionsCheck extends Command
      */
     public function handle()
     {
+        Log::info("cron works done");
 
         $this->info('Checked Incoming transactions and updated statuses if necessary.');
         $this->exchangeService->IncomingTransactionsCheck();

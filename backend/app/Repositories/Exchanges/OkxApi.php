@@ -4,6 +4,7 @@ namespace App\Repositories\Exchanges;
 
 use App\Repositories\Exchanges\ExchangeApiInterface;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class OkxApi implements ExchangeApiInterface
 {
@@ -121,6 +122,8 @@ class OkxApi implements ExchangeApiInterface
 
 
             }
+        } else {
+            Log::error('Error connecting to OKI APi. Please check Api Key and Secret');
         }
 
         return $response['data'];
@@ -256,11 +259,12 @@ class OkxApi implements ExchangeApiInterface
 
         $pair = $this->normalizePair($from, $to);
 
+        /*
         if ($side == 'buy')  {
             $rate = $this->getExchangeRate($from, $to);
             $amount = $amount * $rate;
         }
-
+*/
         $type = "market";
         $params = [
             'instId' => $pair,
@@ -269,6 +273,8 @@ class OkxApi implements ExchangeApiInterface
             'ordType' => $type,
             'sz' => $amount,
         ];
+
+        Log::info("market", $params);
 /*
  * "code" => "0"
   "data" => array:1 [
@@ -288,6 +294,7 @@ class OkxApi implements ExchangeApiInterface
  */
         $response = ['status' => 'error'];
         $r =  $this->sendRequest('POST', $url, $params);
+        $response['msg'] = $r['msg'];
         if ($r['code'] == 0) {
             //sleep(2);
             //$o = $this->getOrderInfo($r['data'][0]['ordId'], $from, $to);
@@ -308,6 +315,7 @@ class OkxApi implements ExchangeApiInterface
     public function normalizePair($from, $to) {
 
         $pair = $from."-".$to;
+
         return $pair;
     }
 
@@ -325,14 +333,14 @@ class OkxApi implements ExchangeApiInterface
             'dest' => '4',
             'toAddr' => trim($toAddress),
            // 'chain' => strtoupper($currency."-".$protocol),
-            "chainName" => $protocol,
+            "chain" => $currency."-".$protocol,
             "fee" => $fee,
 
         ];
 
-print_R($params);
+        Log::info($params);
         $r = $this->sendRequest('POST', $url, $params);
-
+        Log::info($r);
         $code = 801;
         if ($r['code'] == 0) {
             $data = [
@@ -408,22 +416,34 @@ print_R($params);
         return base64_encode(hash_hmac('sha256', $stringToSign, trim($this->secret), true));
     }
 
-    public function checkPair($fromCurrency, $toCurrency)
+    public function checkPair(&$fromCurrency, &$toCurrency, &$pair)
     {
         $pair = $this->normalizePair($fromCurrency, $toCurrency);
-        $url = "{$this->baseUrl}/market/products";
+        $pairV = $this->normalizePair($toCurrency, $fromCurrency);
+        $url = "{$this->baseUrl}/public/instruments?instType=SPOT";
 
-        $response = $this->sendRequest('GET', $url);
+        $response = $this->sendRequest('GET', $url, ['instType' => 'SPOT']);
 
+        $done = false;
         if (isset($response['code']) && $response['code'] === '0') {
             foreach ($response['data'] as $product) {
                 if ($product['instId'] === $pair) {
-                    return true;
+                    $done = true;
+                    break;
+                }
+
+                if ($product['instId'] === $pairV) {
+                    $done = true;
+                    $pair = $pairV;
+                    $tmpCurrency = $fromCurrency;
+                    $fromCurrency = $toCurrency;
+                    $toCurrency = $tmpCurrency;
+                    break;
                 }
             }
         }
-
-        return false;
+        Log::info("check Pair:", ["pair" => $pair, "pairV" => $pairV]);
+        return $done;
     }
 
 
@@ -549,8 +569,11 @@ jekas@MacBook-A
     {
         $url = "{$this->baseUrl}/asset/currencies";
 
+
         $response = $this->sendRequest('GET', $url);
 
+//        Log::info($response);
+//print_r($response);
         if (isset($response['code']) && $response['code'] === '0') {
             foreach ($response['data'] as $currencyData) {
                 if ($currencyData['ccy'] === strtoupper($currency)) {
