@@ -1,0 +1,5 @@
+deb [signed-by=/etc/apt/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian/ bookworm main non-free-firmware non-free
+deb-src [signed-by=/etc/apt/keyrings/debian-archive-keyring.gpg] https://deb.debian.org/debian/ bookworm main non-free-firmware non-free
+
+deb [signed-by=/etc/apt/keyrings/debian-archive-keyring.gpg] https://security.debian.org/debian-security bookworm-security main non-free-firmware non-free
+deb-src [signed-by=/etc/apt/keyrings/debian-archive-keyring.gpg] https://security.debian.org/debian-security bookworm-security main non-free-firmware non-free

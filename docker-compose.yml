@@ -13,18 +13,25 @@ services:
 
   vue:
     build:
-      context: ./frontend  
-      dockerfile: Dockerfile  
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    platform: linux/amd64
+    env_file:
+      - ./frontend/.env
     ports:
-      - "8081:8080"  
+      - '4000:3000'
+    environment:
+      NODE_ENV: development
+    command: "npm run dev"
     volumes:
-      - ./frontend:/usr/src/app 
+      - ./frontend:/app
+      - /app/node_modules
 
   nginx:
     image: nginx:latest
     container_name: nginx
     ports:
-      - "8000:80"
+      - "8100:80"
     volumes:
       - ./backend:/var/www/html
       - ./backend/nginx/default.conf:/etc/nginx/conf.d/default.conf
@@ -33,33 +40,33 @@ services:
     networks:
       - app-network
 
-  db:
+  db_divine:
     image: mysql:8.0
-    container_name: db
+    container_name: db_divine
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: kJ3l@!!938j@k@k
-      MYSQL_DATABASE: maxobmin
-      MYSQL_USER: obmin
-      MYSQL_PASSWORD: 5kLk231s
+      MYSQL_ROOT_PASSWORD: J__Js
+      MYSQL_DATABASE: divine
+      MYSQL_USER: divine
+      MYSQL_PASSWORD: 8Jl38k-j
     volumes:
       - db_data:/var/lib/mysql
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app-network
     ports:
-      - "3307:3306"
+      - "3110:3306"
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     container_name: phpmyadmin
-    platform: linux/amd64    
+    platform: linux/amd64
     environment:
       PMA_HOST: db
       PMA_ARBITRARY: 1
-      PMA_AUTH_TYPE: cookie  
+      PMA_AUTH_TYPE: cookie
     ports:
-      - "8080:80"
+      - "8180:80"
     networks:
       - app-network
 

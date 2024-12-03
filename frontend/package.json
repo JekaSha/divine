@@ -4,10 +4,27 @@
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
-    "start": "node .output/server/index.mjs"
+    "start": "nuxt start"
   },
   "dependencies": {
-    "nuxt": "^3.14.12",
-    "vuetify": "^3.0.0"
+    "@mdi/font": "^7.x",
+    "@nuxtjs/i18n": "^8.5.6",
+    "axios": "^1.x",
+    "nuxt": "^3.13.3",
+    "vuetify": "^3.1.0",
+    "markdown-it": "^13.x"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "latest",
+    "@nuxtjs/eslint-config-typescript": "^12.x",
+    "@types/node": "^20.4.0",
+    "@vitejs/plugin-vue": "^4.0.0",
+    "eslint": "^8.x",
+    "eslint-config-prettier": "^8.x",
+    "eslint-plugin-nuxt": "^4.x",
+    "eslint-plugin-vue": "^9.x",
+    "sass": "^1.81.0",
+    "sass-loader": "^16.0.3",
+    "vite-plugin-vuetify": "^2.0.4"
   }
 }

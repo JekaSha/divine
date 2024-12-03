@@ -15,7 +15,7 @@ node_modules
 /public/storage
 /public/mix-manifest.json
 /backend/.env
-/frontend/.env
+/frontend/.env.example
 
 # Composer
 composer.lock

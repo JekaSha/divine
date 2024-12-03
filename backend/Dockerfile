@@ -1,5 +1,11 @@
 # Use the official PHP 8.3 FPM image as the base
-FROM php:8.3-fpm
+FROM php:8.2-fpm
+
+#RUN apt clean && apt update --allow-unauthenticated
+
+#RUN apt-get update && apt-get install -y debian-archive-keyring
+
+#COPY sources.list /etc/apt/sources.list
 
 # Update package lists and install cron and other dependencies
 RUN apt-get update && apt-get install -y \
@@ -34,6 +40,7 @@ COPY ./php/php.ini /usr/local/etc/php/
 RUN mkdir /var/log/cron && \
     touch /var/log/cron.log && \
     chmod 666 /var/log/cron.log
+RUN apt-get update && apt-get install -y default-mysql-client
 
 # Set permissions for the application directory and its subdirectories
 RUN chmod -R 775 /var/www/html/storage && \

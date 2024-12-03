@@ -1,0 +1,4 @@
+// vuetify/styles/settings.scss
+@use 'vuetify/settings' with (
+  $light: true
+);
