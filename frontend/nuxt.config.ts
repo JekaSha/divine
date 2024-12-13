@@ -7,6 +7,15 @@ import MarkdownIt from 'markdown-it'
 const md = new MarkdownIt();
 
 export default defineNuxtConfig({
+    runtimeConfig: {
+        public: {
+            apiBaseUrl: process.env.API_BASE_URL,
+        },
+    },
+    devtools: {
+        enabled: true // or false to disable
+    },
+
     compatibilityDate: '2024-11-28',
     css: [
         '@mdi/font/css/materialdesignicons.css',

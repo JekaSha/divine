@@ -82,6 +82,8 @@ declare module 'nuxt/schema' {
    },
   }
   interface PublicRuntimeConfig {
+   apiBaseUrl: string,
+
    i18n: {
       baseUrl: string,
 

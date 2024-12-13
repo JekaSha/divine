@@ -943,6 +943,7 @@ const _inlineRuntimeConfig = {
     }
   },
   "public": {
+    "apiBaseUrl": "http://localhost:8100",
     "i18n": {
       "baseUrl": "",
       "defaultLocale": "en",

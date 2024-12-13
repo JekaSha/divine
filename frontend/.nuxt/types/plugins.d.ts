@@ -21,7 +21,7 @@ type NuxtAppInjections =
   InjectionType<typeof import("../../node_modules/@nuxtjs/i18n/dist/runtime/plugins/i18n.js")> &
   InjectionType<typeof import("../../node_modules/nuxt/dist/app/plugins/dev-server-logs.js")> &
   InjectionType<typeof import("../../node_modules/nuxt/dist/app/plugins/check-if-layout-used.js")> &
-  InjectionType<typeof import("../../plugins/axios.js")> &
+  InjectionType<typeof import("../../plugins/axios.client.js")> &
   InjectionType<typeof import("../../plugins/vuetify")>
 
 declare module '#app' {

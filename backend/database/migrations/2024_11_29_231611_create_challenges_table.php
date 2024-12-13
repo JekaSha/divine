@@ -13,10 +13,13 @@ return new class extends Migration
     {
         Schema::create('challenges', function (Blueprint $table) {
             $table->id();
-            $table->morphs('userable');
+            $table->string('guest_hash');
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('session_hash')->index();
+            $table->foreignId('prompt_id')->nullable()->constrained()->cascadeOnDelete();
             $table->text('request');
             $table->text('prompt');
-            $table->text('response')->nullable(); // Ответ
+            $table->text('response')->nullable();
             $table->unsignedInteger('response_time')->nullable();
             $table->json('stream')->nullable();
             $table->timestamps();

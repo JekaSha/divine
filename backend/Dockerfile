@@ -1,4 +1,5 @@
 # Use the official PHP 8.3 FPM image as the base
+#./backend/Dockerfile
 FROM php:8.2-fpm
 
 #RUN apt clean && apt update --allow-unauthenticated
@@ -31,7 +32,11 @@ WORKDIR /var/www/html
 COPY . /var/www/html
 
 # Install PHP dependencies using Composer
-RUN composer install
+RUN composer install --no-dev --optimize-autoloader
+
+RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache && \
+    chmod -R 775 /var/www/html/storage && \
+    chmod -R 775 /var/www/html/bootstrap/cache
 
 # Copy custom php.ini configuration file
 COPY ./php/php.ini /usr/local/etc/php/
