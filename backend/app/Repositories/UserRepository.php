@@ -1,19 +1,18 @@
-    <?php
+<?php
 
     namespace App\Repositories;
 
     use App\Models\User;
     use App\Models\UserProp;
+    use Illuminate\Support\Facades\Schema;
 
     class UserRepository
     {
 
         protected $userId;
 
-        public function __construct($userId)
+        public function __construct()
         {
-
-            $this->userId = $userId;
 
         }
 
@@ -26,16 +25,22 @@
         {
             $query = User::query();
 
-            if (!empty($filters['name'])) {
-                $query->where('name', 'like', '%' . $filters['name'] . '%');
-            }
+            foreach ($filters as $field => $value) {
 
-            if (!empty($filters['email'])) {
-                $query->where('email', $filters['email']);
+                if (Schema::hasColumn('users', $field)) {
+                    if (is_array($value)) {
+                        $query->whereIn($field, $value);
+                    } elseif (is_string($value)) {
+                        $query->where($field, 'like', '%' . $value . '%');
+                    } else {
+                        $query->where($field, $value);
+                    }
+                }
             }
 
             return $query->get();
         }
+
 
         /**
          *
@@ -45,7 +50,7 @@
          * @param bool $force
          * @return void
          */
-        public function setProp(string $name, $value, int $userId = null, bool $force = false): void
+        public function setProp(string $name, $value, int $userId = null, bool $force = false): UserProp
         {
             if (!$userId) $userId = $this->userId;
             $query = UserProp::where('user_id', $userId)->where('name', $name);
@@ -61,9 +66,12 @@
                 if (is_array($existingValue)) {
                     $existingValue[] = $value;
                     $existingProp->update(['value' => json_encode($existingValue)]);
+                    return $existingProp;
                 } else {
                     // Если существующее значение строка, заменяем его
-                    $existingProp->update(['value' => $value]);
+                    $existingProp->value = $value;
+                    $existingProp->save();
+                    return $existingProp;
                 }
             } else {
                 $prop = UserProp::create([
@@ -94,5 +102,9 @@
             }
 
             return null;
+        }
+
+        public function setUserId($userId) {
+            $this->userId = $userId;
         }
     }

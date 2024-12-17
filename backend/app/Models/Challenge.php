@@ -28,6 +28,11 @@ class Challenge extends Model
         return $this->belongsTo(Prompt::class);
     }
 
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
 
 }
 

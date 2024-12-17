@@ -45,4 +45,9 @@ class InvoiceService
     {
         return $this->invoiceRepository->get($filter)->first();
     }
+
+    public function getPackages($data) {
+        $packages = $this->packageRepository->get($data);
+        return $packages;
+    }
 }

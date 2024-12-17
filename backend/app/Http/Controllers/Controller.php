@@ -7,7 +7,8 @@ use Illuminate\Foundation\Bus\DispatchesJobs;
 use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Http\Request;
-use App\Models\User;
+use App\Repositories\UserRepository;
+use App\Services\UserService;
 
 class Controller extends BaseController
 {
@@ -16,6 +17,8 @@ class Controller extends BaseController
     protected string $identifier;
     protected string $lang;
     protected ?array $user = null;
+    protected $userRepository;
+    protected $userService;
 
     /**
      * Controller constructor.
@@ -24,9 +27,11 @@ class Controller extends BaseController
      */
     public function __construct(Request $request)
     {
+        $this->userRepository = app(UserRepository::class);
         $this->identifier = $this->getIdentifier($request);
         $this->lang = $this->getUserLanguageInterface($request);
         $this->user = $this->getUserFromToken($request);
+
 
     }
 
@@ -71,14 +76,20 @@ class Controller extends BaseController
     {
 
         // Use the bearerToken() method to get the token
-        $token = $request->bearerToken() ?? $request->input('token');
+        $token = $request->bearerToken() ?? $request->token;
 
         if (!$token) {
             return null; // No token provided
         }
 
         // Query the database for a user with the provided token
-        $user = User::where('remember_token', $token)->first();
+        //$user = User::where('remember_token', $token)->first();
+        $user = $this->userRepository->get(['remember_tone' => $token]);
+        if ($user) {
+            $user = $user->first();
+            $this->userService = app(UserService::class);
+            $this->userService->setUserId($user['id']);
+        }
 
         return $user ? $user->toArray() : null; // Return user data as an array or null if not found
     }

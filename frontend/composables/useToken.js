@@ -13,7 +13,7 @@ export function useToken() {
     const getOrCreateToken = () => {
         let token = getToken();
         if (!token) {
-            token = crypto.randomUUID();
+            token = Math.random().toString(36).substr(2, 8);
             saveToken(token);
         }
         return token;
@@ -28,7 +28,7 @@ export function useToken() {
     const getOrCreateIdentifier = () => {
         let identifier = getIdentifier();
         if (!identifier) {
-            identifier = crypto.randomUUID();
+            identifier = Math.random().toString(36).substr(2, 8)
             saveIdentifier(identifier);
         }
         return identifier;

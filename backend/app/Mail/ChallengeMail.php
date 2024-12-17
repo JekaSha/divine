@@ -14,6 +14,7 @@ class ChallengeMail extends Mailable
     public $challenge;
     public $lang;
     public $password;
+    public $link;
 
     /**
      * Create a new message instance.
@@ -22,11 +23,12 @@ class ChallengeMail extends Mailable
      * @param string $lang
      * @return void
      */
-    public function __construct(Challenge $challenge, string $password, string $lang = 'en')
+    public function __construct(Challenge $challenge, string $link, string $password, string $lang = 'en')
     {
         $this->challenge = $challenge;
         $this->lang = $lang;
         $this->password = $password;
+        $this->link = $link;
     }
 
     /**
@@ -36,19 +38,17 @@ class ChallengeMail extends Mailable
      */
     public function build()
     {
-        // Установить текущую локаль для приложения
         app()->setLocale($this->lang);
 
-        // Локализованный заголовок
         $subject = __('email.challenge_subject');
 
-        // Выбор шаблона из соответствующей папки
         $viewPath = "emails.{$this->lang}.challenge";
-
+    
         return $this->subject($subject)
             ->markdown($viewPath, [
                 'challenge' => $this->challenge,
                 'password' => $this->password,
+                'link' => $this->link,
             ]);
     }
 }

@@ -24,5 +24,6 @@ class ChallengeSendToEmailEvent
         $this->challenge = $challenge;
         $this->email = $email;
         $this->lang = $lang;
+        bb('event:'.$lang);
     }
 }

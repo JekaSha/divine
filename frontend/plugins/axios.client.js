@@ -7,7 +7,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     const getOrCreateToken = () => {
         let token = localStorage.getItem(TOKEN_KEY);
         if (!token) {
-            token = crypto.randomUUID();
+            token = Math.random().toString(36).substr(2, 8);
             localStorage.setItem(TOKEN_KEY, token);
         }
         return token;
@@ -16,7 +16,7 @@ export default defineNuxtPlugin((nuxtApp) => {
     const getOrCreateIdentifier = () => {
         let identifier = localStorage.getItem(IDENTIFIER_KEY);
         if (!identifier) {
-            identifier = crypto.randomUUID();
+            identifier = Math.random().toString(36).substr(2, 8);
             localStorage.setItem(IDENTIFIER_KEY, identifier);
         }
         return identifier;

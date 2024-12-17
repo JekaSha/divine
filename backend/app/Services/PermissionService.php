@@ -10,11 +10,19 @@ class PermissionService
     protected $userId;
     protected $permission;
 
-    public function __construct(UserRepository $userRepository, int $userId)
+    public function __construct(UserRepository $userRepository)
     {
         $this->userRepository = $userRepository;
-        $this->userId = $userId;
-        $this->loadPermissions();
+    }
+
+    public function setUserId($userId) {
+        if ($userId) {
+            $this->userId = $userId;
+            $this->loadPermissions();
+        } else {
+            bb("Didn't load permission without UserId");
+            return false;
+        }
     }
 
     /**
@@ -77,7 +85,7 @@ class PermissionService
      * @param string $name Permission name to check.
      * @return bool Returns true if the permission is valid, false otherwise.
      */
-    public function tm(string $name): bool
+    public function tm(string $name = "expired_date"): bool
     {
         if (!isset($this->permission[$name])) {
             return false;

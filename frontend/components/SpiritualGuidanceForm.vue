@@ -50,7 +50,7 @@
 
 
 				<!-- Tabs for Navigation -->
-				<v-tabs v-if="stepsHistory.length > 1" v-model="activeTab" class="mb-4">
+				<v-tabs v-if="stepsHistory && stepsHistory.length > 1" v-model="activeTab" class="mb-4">
 					<v-tab v-for="(step, index) in stepsHistory" :key="index">
 						{{ step.title }}
 					</v-tab>
@@ -262,7 +262,9 @@ import { ref, onMounted } from "vue";
 import axios from "axios";
 import { useSession } from '~/composables/useSession';
 import { useToken } from '~/composables/useToken';
+import { useChallenge } from '~/composables/useChallenge';
 import { useRoute } from 'vue-router';
+import { useApi } from "~/composables/useApi";
 
 
 const step = ref(1);
@@ -275,39 +277,53 @@ const identifier = ref(generateIdentifier());
 const { $axios } = useNuxtApp();
 
 const packages = ref([]);
+const { request } = useApi();
 
 
 const progress = ref(0);
 const responseData = ref(null);
+
+const response_percentage_trim = ref(null);
+
 const processedResponse = computed(() => {
-	if (!responseData.value?.response) return { truncated: "", percentage: 0 };
-
-	let response = responseData.value.response;
-	const totalLength = response.length;
-	let visibleLength = totalLength;
-
-	// Обрезаем текст в зависимости от текущего шага
-	if (step.value === 2) {
-		visibleLength = Math.min(200, totalLength);
-		response = response.slice(0, 200) + "...";
-	} else if (step.value === 3) {
-		visibleLength = Math.min(750, totalLength);
-		response = response.slice(0, 750) + "...";
-	} else if (step.value === 4) {
-		visibleLength = Math.min(1250, totalLength);
-		response = response.slice(0, 1250) + "...";
+	if (!responseData.value?.response || !response_percentage_trim.value) {
+		return { truncated: "", percentage: 0 };
 	}
 
-	response = response.replace(/###\s*(.+)/g, "<h3>$1</h3>");
-	response = response.replace(/##\s*(.+)/g, "<h2>$1</h2>");
-	response = response.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>"); // жирный текст
-	response = response.replace(/-\s(.+)/g, "<li>$1</li>"); // списки
+	const response = responseData.value.response;
+	const percentages = response_percentage_trim.value;
+	const totalLength = responseData.value.response_original_length;
 
-	// Рассчитываем процент видимого текста
-	const percentage = Math.round((visibleLength / totalLength) * 100);
+	const truncationLimits = {
+		2: Math.min(150, totalLength),
+		3: Math.min(250, totalLength),
+		4: Math.min(750, totalLength)
+	};
 
-	return { truncated: response, percentage };
+	let visibleLength = truncationLimits[step.value] || totalLength;
+
+	const stepKeys = Object.keys(percentages).map(Number).sort((a, b) => a - b);
+	if (stepKeys[step.value - 2] !== undefined) {
+		visibleLength = Math.min(stepKeys[step.value - 2], totalLength);
+	}
+
+	let truncated = response.slice(0, visibleLength) + (visibleLength < totalLength ? "..." : "");
+
+	const percentage = percentages[visibleLength] || Math.round((visibleLength / totalLength) * 100);
+
+	// Замена форматирования (как раньше)
+	truncated = truncated.replace(/###\s*(.+)/g, "<h3>$1</h3>");
+	truncated = truncated.replace(/##\s*(.+)/g, "<h2>$1</h2>");
+	truncated = truncated.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+	truncated = truncated.replace(/-\s(.+)/g, "<li>$1</li>");
+
+
+	return {
+		truncated,
+		percentage
+	};
 });
+
 
 
 
@@ -317,27 +333,24 @@ const activeTab = ref(0);
 const { getSession } = useSession();
 const session = getSession();
 
+const { Challenge } = useChallenge();
+
 
 watch(step, (newStep) => {
-	console.log('watch: step changed to', newStep);
+	if (!stepsHistory.value) return; // Проверяем, существует ли stepsHistory
 	if (!stepsHistory.value.some((s) => s.step === newStep)) {
 		stepsHistory.value.push({
 			title: getStepTitle(newStep),
 			step: newStep,
 		});
 	}
-
-	if (step.value === 4) {
-		getLoadPackages();
-	}
-
 	activeTab.value = stepsHistory.value.findIndex((s) => s.step === newStep);
-	console.log('activeTab set to', activeTab.value);
 });
 
 
 watch(activeTab, (newTab) => {
 	console.log('activeTab changed:', newTab);
+	if (!stepsHistory.value) return;
 	if (stepsHistory.value[newTab]) {
 		const selectedStep = stepsHistory.value[newTab].step;
 		console.log('selectedStep:', selectedStep);
@@ -371,12 +384,12 @@ async function choosePlan(packageId) {
 
 	try {
 		isLoading.value = true;
-		const response = await $axios.get(`/invoice/create`, {
+		const response = await request(`/invoice/create`, {
 			packageId: packageId
 		});
 
-		if (response.status === 200 && response.data.status === "success") {
-			const invoice = response.data.data.invoice;
+		if (response.status === "success") {
+			const invoice = response.data.invoice;
 			const url = `${apiBaseUrl}/r/invoice/${invoice.hash}`
 			//alert(url);
 			window.location.href = url;
@@ -392,23 +405,7 @@ async function choosePlan(packageId) {
 }
 
 
-async function getLoadPackages() {
-	try {
-		isLoading.value = true;
-		const response = await $axios.get(`/challenges/packages/`, {
-		});
 
-		if (response.status === 200 && response.data.status === "success") {
-			packages.value = response.data.data.packages;
-		} else {
-			throw new Error(response.data.message || "Failed to load packages");
-		}
-	} catch (error) {
-		errorMessage.value = error.response?.data?.message || error.message;
-	} finally {
-		isLoading.value = false;
-	}
-}
 
 async function submitChallenge() {
 	try {
@@ -426,25 +423,25 @@ async function submitChallenge() {
 		}, 2500);
 
 
+		const chat = await Challenge.chat({session: session, request: challenge.value, promptId: 1});
 
-		// Выполняем запрос
-		const response = await $axios.post(`/challenges/answer/1/${session}/`, {
-			request: challenge.value,
-		});
+		clearInterval(interval);
 
-		clearInterval(interval); // Останавливаем прогресс
+		if (chat.status === "success") {
+			const data = chat.data;
 
-		if (response.status === 200 && response.data.status === "success") {
-			responseData.value = response.data.data; // Сохраняем ответ
-			progress.value = 100; // Завершаем прогресс
+			response_percentage_trim.value = data.percentages;
+			responseData.value = data;
+
+			progress.value = 100;
 		} else {
-			throw new Error(response.data.message || "Unknown error");
+			throw new Error(chat.data.message || "Unknown error");
 		}
 	} catch (error) {
 		errorMessage.value = error.response?.data?.message || error.message;
-		progress.value = 0; // Сбрасываем прогресс при ошибке
+		progress.value = 0;
 	} finally {
-		isLoading.value = false; // Снимаем флаг загрузки
+		isLoading.value = false;
 	}
 }
 
@@ -452,14 +449,14 @@ async function submitChallenge() {
 async function submitEmail() {
 	try {
 		isLoading.value = true;
-		errorMessage.value = null; // Сбрасываем ошибку
-		const response = await $axios.post(`/challenges/sendToEmail/${session}`, {
-			email: email.value,
-		});
-		if (response.status === 200) {
-			step.value = 3; // Переход на шаг 3
+		errorMessage.value = null;
+
+		const r = await Challenge.emailSave({session:session, email:email.value});
+		console.log('r:', r);
+		if (r.status === "success") {
+			step.value = 3;
 		} else {
-			throw new Error(response.data.message || "Unknown error");
+			throw new Error(r.data.message || "Unknown error");
 		}
 	} catch (error) {
 		errorMessage.value = error.response?.data?.message || error.message;
@@ -480,25 +477,26 @@ async function getStepData(setStep) {
 		step.value = setStep;
 		isLoading.value = true;
 		errorMessage.value = null;
-console.log('step', step.value);
-		const response = await $axios.post(`/challenges/session/${session}/`, {
-		});
 
-		if (response.status === 200 && response.data.status === "success") {
-			responseData.value = response.data.data;
-			if (response.data.data.user) {
-				user.value = response.data.data.user
+		const chat = await Challenge.getChatBySession(session)
+
+		if (chat.status === "success") {
+			responseData.value = chat.data;
+			if (chat.data.user) {
+				user.value = chat.data.user
 			}
 
-			if (response.data.data.chat?.length > 0) {
-				responseData.value = response.data.data.chat[0];
+			if (chat.data.chat?.length > 0) {
+
+				response_percentage_trim.value = chat.data.percentages
+				responseData.value = chat.data.chat[0];
+
 			} else {
 				responseData.value = null;
 			}
-			console.log('responseData', responseData.value);
 
 		} else {
-			throw new Error(response.data.message || "Unknown error");
+			throw new Error(chat.data.message || "Unknown error");
 		}
 	} catch (error) {
 		errorMessage.value = error.response?.data?.message || error.message;
@@ -522,11 +520,25 @@ function generateIdentifier() {
 	);
 }
 
+async function getPackages () {
+
+	try {
+		const r = await Challenge.getLoadPackages();
+		packages.value = r.data.packages
+	} catch (e) {
+
+	}
+
+}
+
 onMounted(() => {
 	const route = useRoute();
 	const routeStep = parseInt(route.params.step, 10);
 
 	console.log('Initializing step from route:', routeStep);
+
+	getPackages();
+
 
 	if (routeStep && !isNaN(routeStep)) {
 		step.value = routeStep;

@@ -48,8 +48,8 @@ RUN mkdir /var/log/cron && \
 RUN apt-get update && apt-get install -y default-mysql-client
 
 # Set permissions for the application directory and its subdirectories
-RUN chmod -R 775 /var/www/html/storage && \
-    chmod -R 775 /var/www/html/bootstrap/cache
+RUN chmod -R 777 /var/www/html/storage && \
+    chmod -R 777 /var/www/html/bootstrap/cache
 
 # Copy the cron job definition file to the cron.d directory
 COPY cronfile /etc/cron.d/laravel-scheduler
@@ -68,6 +68,7 @@ COPY start.sh /start.sh
 
 # Make the start script executable
 RUN chmod +x /start.sh
+
 
 # Set the command to run the start script
 CMD ["/start.sh"]

@@ -79,14 +79,11 @@ class ChallengeService
         } else {
             $answer = $challenge->response;
         }
-
+        
         $r = [
-            'status' => "success",
-            "data" => [
                 'request' => $challenge->request,
                 'response' => $challenge->response,
-            ]
-        ];
+            ];
 
         return $r;
     }
@@ -125,9 +122,5 @@ class ChallengeService
         // Удалить запрос
         return $this->challengeRepository->delete($id);
     }
-
-    public function getPackages($data) {
-        $packages = $this->packageRepository->get($data);
-        return $packages;
-    }
+    
 }

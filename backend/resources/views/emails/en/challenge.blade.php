@@ -1,14 +1,17 @@
 @component('mail::message')
-    # Challenge Details
+    # Hello, {{ $challenge->user ? $challenge->user->name : 'Guest' }}!
 
-    **Session Hash:** {{ $challenge->session_hash }}
+    **Your Question:**
+    {{ $challenge->request }}
 
-    **Request:** {{ $challenge->request }}
+    **Response:**
+    {{ Str::limit($challenge->response, 500) }}
 
-    @if($challenge->response)
-        **Response:** {{ $challenge->response }}
-    @endif
+    @component('mail::button', ['url' => $link])
+        Read the Full Response
+    @endcomponent
 
-    Thanks,<br>
-    {{ config('app.name') }}
+    Best regards,
+    **The Support Team**
 @endcomponent
+

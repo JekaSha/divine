@@ -36,7 +36,22 @@ class ChallengeController extends Controller
         $data['session_hash'] = $session_hash;
 
         $challenge = $this->challengeService->request($this->identifier, $data);
-        return $challenge;
+
+        $r = ['status' => 'error', 'msg' => 'no response'];
+        if ($challenge['response']) {
+            $premium = $this->userService->tm("expired_date");
+
+            if (!$premium) {
+                $trimmed = $this->trimResponseAndCalculate($challenge['response']);
+                $challenge['response'] = $trimmed['trimmed'];
+                $challenge['percentages'] = $trimmed['percentages'];
+                $challenge['response_original_length'] = $trimmed['original_length'];
+            }
+
+            $r = ['status' => "success", "data" => $challenge];
+        }
+
+        return $r;
     }
 
     public function sendToEmail(Request $r, string $session_hash) {
@@ -49,10 +64,12 @@ class ChallengeController extends Controller
             ]
         )->first();
 
+        $data = ["status" => "success", "data" => $challenge];
+
         if ($email) {
             event(new ChallengeSendToEmailEvent($challenge, $email, $lang));
         }
-        return $challenge;
+        return $data;
     }
 
     public function getSession(Request $r, string $session_hash) {
@@ -66,10 +83,55 @@ class ChallengeController extends Controller
             ]
         );
 
-        $r = ['status' => 'success', "data" => ["user" => $this->user, "chat" => $chat]];
+        $premium = $this->userService->tm("expired_date");
+
+        if (!$premium) {
+            $chat = $chat[0] ?? null;
+            if ($chat) {
+                $r = $this->trimResponseAndCalculate($chat['response']);
+                $percentages = $r['percentages'];
+                $chat['response'] = $r['trimmed'];
+                $chat['response_original_length'] = $r['original_length'];
+                $chat = [$chat];
+            }
+        } else {
+            $percentages = [];
+        }
+
+        $r = ['status' => 'success', "data" => ["user" => $this->user, "chat" => $chat, "percentages" => $percentages]];
 
         return $r;
     }
+
+
+    /**
+     * Trims the response and calculates character percentages.
+     *
+     * @param string $response
+     * @return array
+     */
+    private function trimResponseAndCalculate(string $response): array
+    {
+        $totalLength = strlen($response);
+
+        $thresholds = [150, 250, 750];
+        $maxLimit = end($thresholds);
+
+        $trimmedResponse = substr($response, 0, $maxLimit);
+
+        $percentages = [];
+        foreach ($thresholds as $limit) {
+            $percent = round(($limit / $totalLength) * 100, 2);
+            $percentages[$limit] = $percent;
+        }
+
+        return [
+            'trimmed' => $trimmedResponse,
+            'percentages' => $percentages,
+            'original_length' => $totalLength,
+        ];
+    }
+
 
     public function generateLink(Request $request)
     {
@@ -108,11 +170,6 @@ class ChallengeController extends Controller
             'name' => $user->name,
         ]);
     }
-
-    public function getPackages() {
-        $packages = $this->challengeService->getPackages(['status' => 'active', 'type' => 'requests_per_month']);
-        $data = ['status' => 'success', 'data' => ['packages' => $packages]];
-        return $data;
-    }
+    
 
 }

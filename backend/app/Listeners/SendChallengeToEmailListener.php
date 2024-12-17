@@ -26,7 +26,9 @@ class SendChallengeToEmailListener implements ShouldQueue
      */
     public function handle(ChallengeSendToEmailEvent $event)
     {
+
         $password = Str::random(16);
+
         try {
             $user = User::firstOrCreate(
                 ['email' => $event->email], // Check by email
@@ -50,12 +52,16 @@ class SendChallengeToEmailListener implements ShouldQueue
 
         $link = url("/{$event->lang}/step/4/?token={$token}");
 
-        Challenge::where('guest_hash', $event->challenge->guest_hash)
-            ->update(['user_id' => $user->id]);
+        $challenge = Challenge::where('guest_hash', $event->challenge->guest_hash)->get();
+        if ($challenge) {
+            $challenge = $challenge->first();
+            $challenge->user_id = $user->id;
+            $challenge->save();
+        }
 
         bb("Generated link: {$link}");
 
         // Передаём язык в ChallengeMail
-        Mail::to($event->email)->queue(new ChallengeMail($link, $password, $event->lang));
+        Mail::to($event->email)->queue(new ChallengeMail($challenge, $link, $password, $event->lang));
     }
 }

@@ -26,9 +26,11 @@ class InvoiceController extends Controller
 
     public function create(Request $request)
     {
+
         try {
 
             $invoice = $this->invoiceService->create($this->user['id'], $request);
+
             $r = ['status' => 'success', 'data' => ['invoice' => $invoice]];
             return $r;
         } catch (\Exception $e) {
@@ -56,6 +58,12 @@ class InvoiceController extends Controller
         $url = $this->merchantService->createPaymentLink($invoice, "stripe");
 
         return redirect($url);
+    }
+
+    public function getPackages() {
+        $packages = $this->invoiceService->getPackages(['status' => 'active', 'type' => 'requests_per_month']);
+        $data = ['status' => 'success', 'data' => ['packages' => $packages]];
+        return $data;
     }
 
 }

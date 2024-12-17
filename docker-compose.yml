@@ -4,7 +4,7 @@ services:
       context: ./backend
     container_name: backend
     volumes:
-      - ./backend:/var/www/html
+      - ./backend:/var/www/html:delegated
       - /var/www/html/vendor
       - ./backend/storage:/var/www/html/storage
     networks:
@@ -16,6 +16,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
+    container_name: nuxtjs
     platform: linux/amd64
     env_file:
       - ./frontend/.env
@@ -51,7 +52,7 @@ services:
       MYSQL_USER: divine
       MYSQL_PASSWORD: 8Jl38k-j
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data_divine:/var/lib/mysql
       - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app-network
@@ -76,7 +77,7 @@ networks:
     driver: bridge
 
 volumes:
-  db_data:
+  db_data_divine:
 
 
 

@@ -10,4 +10,6 @@ Route::get('/', function () {
 use App\Http\Controllers\InvoiceController;
 Route::get('/r/invoice/{invoiceHash}', [InvoiceController::class, 'merchant'])->name('invoice.merchant');
 
-Route::post('/webhooks/stripe', [WebhookController::class, 'handle']);
+use App\Http\Controllers\WebhookController;
+Route::any('/webhooks/stripe', [WebhookController::class, 'stripe']);
+

@@ -30,7 +30,7 @@ export function useSession() {
     };
 
     const generateShortId = () => {
-        return crypto.randomUUID().split('-')[0];
+        return Math.random().toString(36).substr(2, 8);
     };
 
     return {

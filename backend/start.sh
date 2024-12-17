@@ -1,6 +1,7 @@
 #!/bin/sh
 
 
+
 # Navigate to the application directory
 cd /var/www/html
 
@@ -9,6 +10,9 @@ cd /var/www/html
 /usr/local/bin/php /var/www/html/artisan config:clear
 /usr/local/bin/php /var/www/html/artisan route:clear
 /usr/local/bin/php /var/www/html/artisan view:clear
+
+chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
+
 
 # Rebuild the configuration cache
 /usr/local/bin/php /var/www/html/artisan config:cache

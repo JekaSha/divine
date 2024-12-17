@@ -35,9 +35,7 @@ class MerchantRepository
             'total' => $invoice->total,
             'currency' => $invoice->currency,
             'description' => "Payment for Invoice #{$hash}",
-            'metadata' => [
-                'invoice_hash' => $invoice->hash,
-            ]
+            'invoice_hash' => $invoice->hash,
         ];
 
         // Generate and return the payment link

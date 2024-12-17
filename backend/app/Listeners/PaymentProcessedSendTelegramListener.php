@@ -23,7 +23,7 @@ class PaymentProcessedSendTelegramListener
 
         if ($telegramToken && $chatId) {
             $message = "Payment status: *$status*\nInvoice: *$invoiceHash*";
-
+bb($message);
             Http::post("https://api.telegram.org/bot{$telegramToken}/sendMessage", [
                 'chat_id' => $chatId,
                 'text' => $message,

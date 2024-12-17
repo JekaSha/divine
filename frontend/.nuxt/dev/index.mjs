@@ -943,7 +943,7 @@ const _inlineRuntimeConfig = {
     }
   },
   "public": {
-    "apiBaseUrl": "http://localhost:8100",
+    "apiBaseUrl": "https://backend.divine.guide",
     "i18n": {
       "baseUrl": "",
       "defaultLocale": "en",
