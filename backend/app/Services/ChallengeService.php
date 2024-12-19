@@ -79,7 +79,7 @@ class ChallengeService
         } else {
             $answer = $challenge->response;
         }
-        
+
         $r = [
                 'request' => $challenge->request,
                 'response' => $challenge->response,

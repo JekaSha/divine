@@ -35,7 +35,7 @@ class InvoiceService
             'packages' => [$package->toArray()],
             'status' => 'pending',
         ];
-
+bb($invoiceData);
 
         $invoice = $this->invoiceRepository->store($invoiceData);
         return $invoice;

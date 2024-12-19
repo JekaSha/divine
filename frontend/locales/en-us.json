@@ -1,12 +1,13 @@
 {
   "index_title": "✝️ Discover God's Answers, Tailored Just for You",
-  "index_description": "Receive immediate, life-changing, personalized guidance. **Rooted in faith and scripture.**",
+  "index_description": "Get clear, Bible-based step-by-step guidance for whatever you're facing, sent right to your inbox.",
   "step_1_caption": "✝️ Describe Your Challenge",
   "step_1_hint": "Ask the question you've always been hesitant to ask your pastor. Share what's troubling you, and our AI-powered assistant will provide a thoughtful and detailed response to guide you in your situation.",
-  "step_1_textarea_label": "Describe Your Challenge",
-  "step_1_button_action": "Get Your Personalized Spiritual Guidance",
+  "step_1_textarea_label": "Be as specific as possible. For example: 'I’m struggling with a decision about my career,' or 'How can I strengthen my faith during tough times?'",
+  "step_1_button_action": "Get My Personalized Guidance",
+  "step_1_anonymous_request": "Your submission is completely private and anonymous.",
 
   "step_3_caption": "✝️ We sent you a link to the full response via email.",
-  "step_3_button_action": "Check email",
+  "step_3_button_action": "I have checked email",
   "step_4_attention": "Choose a subscription plan tailored to the frequency of your inquiries to ensure uninterrupted access to complete answers."
 }

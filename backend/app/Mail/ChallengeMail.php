@@ -43,7 +43,7 @@ class ChallengeMail extends Mailable
         $subject = __('email.challenge_subject');
 
         $viewPath = "emails.{$this->lang}.challenge";
-    
+
         return $this->subject($subject)
             ->markdown($viewPath, [
                 'challenge' => $this->challenge,

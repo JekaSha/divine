@@ -41,8 +41,12 @@ class StripeMerchant
                 'product' => $product->id,
             ]);
 
-            $redirectLink = env('FRONTEND_HOST').'/payment/success';
-            bb($redirectLink);
+            $lang = $invoiceData['lang'] ?? 'en';
+
+            $redirectLink = env('FRONTEND_HOST')."/".$lang.'/step/4/?payment=success';
+
+            $metadata = ['invoice_hash' => $invoiceData['invoice_hash']];
+
             // Create a payment link
             $paymentLink = $this->stripe->paymentLinks->create([
                 'line_items' => [
@@ -52,8 +56,8 @@ class StripeMerchant
                     ],
                 ],
 
-                'payment_intent_data' => ['metadata' => ['invoice_hash' => $invoiceData['invoice_hash']]],
-                'metadata' => ['invoice_hash' => $invoiceData['invoice_hash']],
+                'payment_intent_data' => ['metadata' => $metadata],
+                'metadata' => $metadata,
 
                 "after_completion" => [
                     'type' => 'redirect',
@@ -62,7 +66,7 @@ class StripeMerchant
                     ],
                 ]
             ]);
-bb($invoiceData);
+
             return $paymentLink->url;
         } catch (\Exception $e) {
             throw new \Exception('Error creating Stripe payment link: ' . $e->getMessage());

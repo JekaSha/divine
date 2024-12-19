@@ -9,6 +9,7 @@ use Illuminate\Routing\Controller as BaseController;
 use Illuminate\Http\Request;
 use App\Repositories\UserRepository;
 use App\Services\UserService;
+use App\Models\User;
 
 class Controller extends BaseController
 {
@@ -27,6 +28,7 @@ class Controller extends BaseController
      */
     public function __construct(Request $request)
     {
+
         $this->userRepository = app(UserRepository::class);
         $this->identifier = $this->getIdentifier($request);
         $this->lang = $this->getUserLanguageInterface($request);
@@ -84,11 +86,18 @@ class Controller extends BaseController
 
         // Query the database for a user with the provided token
         //$user = User::where('remember_token', $token)->first();
-        $user = $this->userRepository->get(['remember_tone' => $token]);
-        if ($user) {
+
+        $user = $this->userRepository->get(['remember_token' => $token]);
+
+        if ($user->count() > 0) {
             $user = $user->first();
-            $this->userService = app(UserService::class);
-            $this->userService->setUserId($user['id']);
+            if ($user->id) {
+                $this->userService = app(UserService::class);
+                $this->userService->setUserId($user['id']);
+            }
+        } else {
+            $user = app(User::class)->newInstance();
+            $user->id = 0;
         }
 
         return $user ? $user->toArray() : null; // Return user data as an array or null if not found

@@ -39,8 +39,11 @@ class ChallengeController extends Controller
 
         $r = ['status' => 'error', 'msg' => 'no response'];
         if ($challenge['response']) {
-            $premium = $this->userService->tm("expired_date");
-
+            if ($this->userService) {
+                $premium = $this->userService->tm("expired_date");
+            } else {
+                $premium = false;
+            }
             if (!$premium) {
                 $trimmed = $this->trimResponseAndCalculate($challenge['response']);
                 $challenge['response'] = $trimmed['trimmed'];
@@ -67,7 +70,10 @@ class ChallengeController extends Controller
         $data = ["status" => "success", "data" => $challenge];
 
         if ($email) {
-            event(new ChallengeSendToEmailEvent($challenge, $email, $lang));
+
+            //if (!$this->user['id']) {
+                event(new ChallengeSendToEmailEvent($challenge, $email, $lang));
+            //}
         }
         return $data;
     }
@@ -83,8 +89,9 @@ class ChallengeController extends Controller
             ]
         );
 
-        $premium = $this->userService->tm("expired_date");
-
+        $premium = $this->userService ? $this->userService->tm("expired_date") : false;
+        $permissions = [];
+        $percentages = [];
         if (!$premium) {
             $chat = $chat[0] ?? null;
             if ($chat) {
@@ -96,9 +103,19 @@ class ChallengeController extends Controller
             }
         } else {
             $percentages = [];
+            $permissions = $this->userService->getPermissions();
+            $permissions['active'] = $this->userService->isPermissionActive();
         }
 
-        $r = ['status' => 'success', "data" => ["user" => $this->user, "chat" => $chat, "percentages" => $percentages]];
+        $r = ['status' => 'success', "data" =>
+            [
+                "user" => $this->user,
+                'permissions' => $permissions,
+                "chat" => $chat,
+                "percentages" => $percentages,
+
+            ]
+        ];
 
         return $r;
     }

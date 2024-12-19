@@ -26,7 +26,7 @@ export default defineNuxtPlugin((nuxtApp) => {
 
     const axiosInstance = axios.create({
         baseURL: `${config.public.apiBaseUrl}/api`,
-        timeout: 30000,
+        timeout: 120000,
         headers: {
             'Content-Type': 'application/json',
         },

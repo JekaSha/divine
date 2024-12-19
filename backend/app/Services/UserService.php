@@ -82,10 +82,30 @@ class UserService
             default:
                 throw new \InvalidArgumentException("Unknown package type: {$type}");
         }
+
+        if ($package['stream']) {
+            $props = $this->getProp('permission', $this->userId) ?? [];
+
+            foreach ($package['stream'] as $key => $value) {
+                if ($key) {
+                    $props[$key] = $value;
+                }
+            }
+
+            $this->setProp("permission", $props, $this->userId, true);
+        }
     }
 
     public function tm($name = "expired_date") {
         return $this->permissionService->tm($name);
+    }
+
+    public function getPermissions() {
+        return $this->permissionService->getPermissions();
+    }
+
+    public function isPermissionActive() {
+        return $this->permissionService->isPermissionActive();
     }
 
 }

@@ -145,4 +145,12 @@ class PermissionService
         $this->permission[$key] = $value;
         $this->savePermissions();
     }
+
+    public function isPermissionActive() {
+        if ($this->tm() && $this->permission['requests']>0) {
+            return true;
+        }
+
+        return false;
+    }
 }

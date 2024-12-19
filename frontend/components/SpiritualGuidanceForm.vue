@@ -1,26 +1,11 @@
 <template>
 
-		<v-container class="header-container py-2">
-			<!-- Верхний ряд: Заголовок и профиль в одну строку -->
-			<v-row align="right" justify="space-between">
+		<Profile :user="user" :permissions="permissions"/>
 
-				<div class="profile-header">
-					<v-avatar v-if="user" size="30" class="mr-2">
-						<v-icon>mdi-account-circle</v-icon>
-					</v-avatar>
-					<div v-if="user" class="profile-details">
-						<span class="user-name">{{ user.name || "Guest" }}</span>
-						<span class="user-email">{{ user.email }}</span>
-					</div>
-					<v-btn v-else color="primary" @click="redirectToLogin" class="login-btn">
-						Login
-					</v-btn>
-				</div>
-			</v-row>
-
-		</v-container>
 
 	<v-container class="py-12">
+
+		<PaymentSuccess v-if="$route.query.payment === 'success'" />
 
 		<!-- Main Content -->
 		<v-row justify="center" class="mb-1">
@@ -83,10 +68,9 @@
 								outlined
 								rows="6"
 								v-model="challenge"
+								class="custom-textarea"
 							></v-textarea>
-							<p class="text-caption secure-info">
-								Your information is secure and will be used solely to deliver your personalized guidance.
-							</p>
+							<p class="text-caption secure-info" v-html="$t('step_1_anonymous_request')"></p>
 							<v-alert
 								class="mt-4"
 								border="left"
@@ -217,7 +201,11 @@
 			... <a href="#subscription-plans" class="read-more-link">Read more</a>
 		</span>
 										</p>
-										<div class="response-percentage" id="subscription-plans">
+
+										<div class="response-percentage" id="subscription-plans"
+											 v-if="!isPackage"
+										>
+
 											<v-icon class="response-icon" color="blue">mdi-information-outline</v-icon>
 											<span>
 		This is only <strong>{{ processedResponse.percentage }}%</strong> of the full response.
@@ -227,6 +215,7 @@
 										</div>
 									</div>
 
+									<div v-if="!isPackage">
 									<p class="subscription-message" v-html="$t('step_4_attention')"></p>
 									<v-row>
 										<v-col v-for="(pkg, index) in packages" :key="index" cols="12" md="4">
@@ -246,6 +235,7 @@
 											</v-card>
 										</v-col>
 									</v-row>
+									</div>
 						</div>
 							</v-row>
 						</v-tab-item>
@@ -285,14 +275,37 @@ const responseData = ref(null);
 
 const response_percentage_trim = ref(null);
 
+const permissions = ref(null);
+
+const isPackage = computed(() => {
+	return (permissions && permissions.value && permissions.value.active === true);
+
+});
+
 const processedResponse = computed(() => {
-	if (!responseData.value?.response || !response_percentage_trim.value) {
+	if (!responseData.value?.response) {
 		return { truncated: "", percentage: 0 };
 	}
 
 	const response = responseData.value.response;
+	const totalLength = responseData.value.response_original_length ?? 0;
+
+	if (!response_percentage_trim.value ||
+		(response_percentage_trim.value && response_percentage_trim.value.length == 0)) {
+
+		const truncated = response
+			.replace(/###\s*(.+)/g, "<h3>$1</h3>")
+			.replace(/##\s*(.+)/g, "<h2>$1</h2>")
+			.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+			.replace(/-\s(.+)/g, "<li>$1</li>");
+
+		return {
+			truncated,
+			percentage: 100
+		};
+	}
+
 	const percentages = response_percentage_trim.value;
-	const totalLength = responseData.value.response_original_length;
 
 	const truncationLimits = {
 		2: Math.min(150, totalLength),
@@ -317,13 +330,14 @@ const processedResponse = computed(() => {
 	truncated = truncated.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 	truncated = truncated.replace(/-\s(.+)/g, "<li>$1</li>");
 
-
 	return {
 		truncated,
 		percentage
 	};
 });
 
+
+const requestsHistory = ref([]);
 
 
 
@@ -337,25 +351,55 @@ const { Challenge } = useChallenge();
 
 
 watch(step, (newStep) => {
-	if (!stepsHistory.value) return; // Проверяем, существует ли stepsHistory
-	if (!stepsHistory.value.some((s) => s.step === newStep)) {
-		stepsHistory.value.push({
-			title: getStepTitle(newStep),
-			step: newStep,
-		});
+	if (!stepsHistory.value) return;
+
+	const title = newStep === 4 ? challenge.value : getStepTitle(newStep);
+
+	if (newStep === 4) {
+
+		if (!isPackage.value) {
+			getPackages()
+		}
 	}
-	activeTab.value = stepsHistory.value.findIndex((s) => s.step === newStep);
+
+
+
+	if (!stepsHistory.value.some((s) => s.step === newStep)) {
+		if (title) {
+			stepsHistory.value.push({
+				title: title,
+				step: newStep,
+				responseData: responseData.value
+			});
+		}
+	}
+
+	const tabIndex = stepsHistory.value.findIndex((s) => s.step === newStep);
+	console.log(stepsHistory.value)
+	console.log('tabIndex',tabIndex)
+	if (tabIndex !== -1) {
+		activeTab.value = tabIndex;
+	} else {
+		if (newStep > 1) {
+			activeTab.value = 1
+		}
+	}
 });
+
 
 
 watch(activeTab, (newTab) => {
 	console.log('activeTab changed:', newTab);
+
+
 	if (!stepsHistory.value) return;
 	if (stepsHistory.value[newTab]) {
 		const selectedStep = stepsHistory.value[newTab].step;
 		console.log('selectedStep:', selectedStep);
+
 		if (selectedStep) {
 			step.value = selectedStep;
+			responseData.value =  stepsHistory.value[newTab].responseData
 		}
 	} else {
 		console.warn('Invalid activeTab index:', newTab);
@@ -369,7 +413,7 @@ function getStepTitle(step) {
 		case 1:
 			return "Describe Your Challenge";
 		case 2:
-			return "Enter Your Email";
+			return "Send to Your Email";
 		case 3:
 			return "Response Sent";
 		case 4:
@@ -381,6 +425,11 @@ function getStepTitle(step) {
 
 async function choosePlan(packageId) {
 	const { apiBaseUrl } = useRuntimeConfig().public;
+
+	if (!user.value.email) {
+		step.value = 2
+		return
+	}
 
 	try {
 		isLoading.value = true;
@@ -410,11 +459,24 @@ async function choosePlan(packageId) {
 async function submitChallenge() {
 	try {
 
-		step.value = 2;
+		if (user.value.id) {
+			step.value = 4
+			getPackages()
+		} else {
+			step.value = 2;
+		}
+
+		if (permissions.value.active) {
+			responseData.value = {}
+		} else {
+
+			stepsHistory.value.push({ title: "Send to Your Email", step: 2 });
+		}
+
 		isLoading.value = false;
 		errorMessage.value = null;
-		progress.value = 0; // Сбрасываем прогресс
-		stepsHistory.value.push({ title: "Enter Your Email", step: 2 });
+		progress.value = 0;
+
 		// Запускаем эмуляцию прогресса
 		const interval = setInterval(() => {
 			if (progress.value < 90) {
@@ -434,6 +496,13 @@ async function submitChallenge() {
 			responseData.value = data;
 
 			progress.value = 100;
+
+			stepsHistory.value.push({
+				title: challenge.value,
+				step: step.value,
+				responseData: data
+			});
+
 		} else {
 			throw new Error(chat.data.message || "Unknown error");
 		}
@@ -474,16 +543,22 @@ async function getStepData(setStep) {
 	}
 
 	try {
-		step.value = setStep;
+
 		isLoading.value = true;
 		errorMessage.value = null;
 
 		const chat = await Challenge.getChatBySession(session)
 
 		if (chat.status === "success") {
+
+			if (chat.data.permissions) {
+				permissions.value = chat.data.permissions
+			}
+
 			responseData.value = chat.data;
 			if (chat.data.user) {
 				user.value = chat.data.user
+				email.value = user.value.email
 			}
 
 			if (chat.data.chat?.length > 0) {
@@ -491,6 +566,17 @@ async function getStepData(setStep) {
 				response_percentage_trim.value = chat.data.percentages
 				responseData.value = chat.data.chat[0];
 
+				console.log('cv:',challenge.value)
+
+
+				stepsHistory.value.push({
+					title: responseData.value.request.slice(0, 20),
+					step: 4,
+					responseData: responseData.value
+				});
+
+				step.value = 4;
+				console.log('setStep:',setStep)
 			} else {
 				responseData.value = null;
 			}
@@ -537,16 +623,23 @@ onMounted(() => {
 
 	console.log('Initializing step from route:', routeStep);
 
-	getPackages();
 
+	getStepData(routeStep);
 
 	if (routeStep && !isNaN(routeStep)) {
 		step.value = routeStep;
-		getStepData(routeStep);
+		const tabIndex = stepsHistory.value.findIndex((s) => s.step === step.value);
+		if (tabIndex !== -1) {
+			activeTab.value = tabIndex; // Синхронизация вкладки
+		}
 	} else {
 		console.warn('Invalid routeStep, defaulting to 1');
 		step.value = 1;
 	}
+
+	if (step.value == 4 && !isPackage.value) getPackages();
+
+
 
 	const links = document.querySelectorAll('.scroll-link');
 	links.forEach(link => {
@@ -837,18 +930,6 @@ onMounted(() => {
 	margin: 0;
 }
 
-.profile-header {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-}
-
-.profile-details {
-	display: flex;
-	align-items: center; /* Выравнивание текста и иконки по центру */
-	margin-left: 10px;
-}
-
 .user-name {
 	font-weight: bold;
 	color: #2c3e50;
@@ -878,6 +959,26 @@ onMounted(() => {
 .v-tabs .v-tab--active {
 	color: #2c3e50;
 	border-bottom: 2px solid #3498db;
+}
+
+
+
+.custom-textarea-1 .v-input__control {
+	word-wrap: break-word; /* Разрешает перенос текста */
+	white-space: pre-wrap; /* Сохраняет разрывы строк */
+}
+
+.custom-textarea-1 .v-label {
+	display: block; /* Делает текст лейбла блочным */
+	white-space: normal; /* Позволяет перенос строк */
+	line-height: 1.4; /* Увеличивает читаемость */
+	color: #555; /* Цвет текста */
+}
+
+.custom-textarea :deep(.v-input--is-focused .v-label.v-label--active) {
+	visibility: hidden; /* Скрываем лейбл */
+	position: absolute; /* Убираем его из потока */
+	z-index: -1; /* Перемещаем на задний план */
 }
 
 </style>
