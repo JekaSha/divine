@@ -11,6 +11,11 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call([
+            PromptsTableSeeder::class,
+            MerchantsTableSeeder::class,
+            PackagesTableSeeder::class,
+        ]);
 
     }
 }
