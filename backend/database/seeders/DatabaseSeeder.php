@@ -45,6 +45,7 @@ class MerchantsTableSeeder extends Seeder
     {
         DB::table('merchants')->insert([
             [
+                'name' => 'stripe',
                 'key' => 'sk_test_51LmGgmHOcioBkeKSQ7Vsp5kpUeT8dX5yz0UdTR1cNk1bkUc0hQNVmuSsQJowjJhUsiWbmaDsI7LR80G8N7crqe2GZ00KF580Qoi',
                 'secret' => " ",
                 'stream' => json_encode(['webhook_sign' => 'whsec_ZVWxPuIP3B4anpbr8naArZQHZKN62jg']),
