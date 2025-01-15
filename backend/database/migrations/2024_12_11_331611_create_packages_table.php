@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('currency', 12);
             $table->json('stream')->nullable();
             $table->enum('status', ['active', 'inactive'])->default('active');
+            $table->integer('ord')->nullable();
             $table->timestamps();
         });
     }

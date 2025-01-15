@@ -1,9 +1,9 @@
 {
-  "_hash": "AMPwVd76Ch",
+  "_hash": "jTDqhVkyYg",
   "project": {
     "rootDir": "/app"
   },
   "versions": {
-    "nuxt": "3.14.1592"
+    "nuxt": "3.15.2"
   }
 }

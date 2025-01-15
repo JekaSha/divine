@@ -12,7 +12,7 @@
 					<v-card flat class="user-details-card pa-2">
 						<div class="user-details">
 							<span class="user-name">{{ user.name || "Guest" }}</span>
-							<span class="user-email">{{ user.email }}</span>
+							<span class="user-email" v-if="user.name != user.email">{{ user.email }}</span>
 						</div>
 					</v-card>
 				</div>

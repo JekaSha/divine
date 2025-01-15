@@ -13,7 +13,8 @@ Route::get('/user', function (Request $request) {
 
 Route::get('/challenges/get', [ChallengeController::class, 'get']);
 Route::any('/challenges/session/{session_hash}', [ChallengeController::class, 'getSession']);
-Route::any('/challenges/answer/{prompt_id}/{session_hash}', [ChallengeController::class, 'store']);
+Route::any('/challenges/answer/{session_hash}', [ChallengeController::class, 'request']);
+Route::any('/challenges/get/answer/{id}', [ChallengeController::class, 'get']);
 Route::any('/challenges/packages/', [InvoiceController::class, 'getPackages']);
 
 Route::any('/challenges/sendToEmail/{session_hash}', [ChallengeController::class, 'sendToEmail']);

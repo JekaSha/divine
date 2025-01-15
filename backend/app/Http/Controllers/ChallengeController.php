@@ -7,6 +7,9 @@ use App\Services\ChallengeService;
 use App\Repositories\ChallengeRepository;
 use App\Events\ChallengeSendToEmailEvent;
 
+use Illuminate\Support\Str;
+use App\Models\User;
+
 class ChallengeController extends Controller
 {
     protected $challengeService;
@@ -22,22 +25,25 @@ class ChallengeController extends Controller
         $this->challengeService = $challengeService;
         $this->challengeRepository = $challengeRepository;
     }
-    public function get()
+    public function get(Request $r, int $id)
     {
-        $challenges = $this->challengeService->get($this->identifier);
-        return $challenges;
+        $filter = $r->all();
+        $filter['id'] = $id;
+        $challenges = $this->challengeService->get($this->identifier, $filter);
+        $r = ['status' => 'success', "data" => ["challenges" => $challenges]];
+        return $r;
 
     }
 
-    public function store(Request $r, int $prompt_id, string $session_hash) {
+    public function request(Request $r, string $session_hash) {
 
         $data = $r->all();
-        $data['prompt_id'] = $prompt_id;
         $data['session_hash'] = $session_hash;
 
-        $challenge = $this->challengeService->request($this->identifier, $data);
+        $challenges = $this->challengeService->request($this->identifier, $data);
 
-        $r = ['status' => 'error', 'msg' => 'no response'];
+        $r = ['status' => 'success', "data" => ['msg' => 'The task have been queued.', 'challenges' => $challenges]];
+        /*
         if ($challenge['response']) {
             if ($this->userService) {
                 $premium = $this->userService->tm("expired_date");
@@ -53,10 +59,24 @@ class ChallengeController extends Controller
 
             $r = ['status' => "success", "data" => $challenge];
         }
-
+*/
         return $r;
     }
+    private function queueChallengeRequest(array $data): void
+    {
+        // Логика для помещения задачи в очередь
+        dispatch(function () use ($data) {
+            $this->challengeService->request($this->identifier, $data);
+        });
+    }
 
+    private function prepareData(array $requestData, int $prompt_id, string $session_hash): array
+    {
+        $requestData['prompt_id'] = $prompt_id;
+        $requestData['session_hash'] = $session_hash;
+
+        return $requestData;
+    }
     public function sendToEmail(Request $r, string $session_hash) {
         $email = $r->email;
         $lang = $this->lang;
@@ -67,26 +87,56 @@ class ChallengeController extends Controller
             ]
         )->first();
 
-        $data = ["status" => "success", "data" => $challenge];
+        $data = ["status" => "success", "data" => ["challenge" => $challenge]];
 
         if ($email) {
 
-            //if (!$this->user['id']) {
-                event(new ChallengeSendToEmailEvent($challenge, $email, $lang));
-            //}
+            $password = Str::random(16);
+
+            $created = false;
+            $user = User::where('email', $email)->first();
+
+            if (!$user) {
+                $user = User::create([
+                    'email' => $email,
+                    'name' => $email,
+                    'language' => $lang,
+                    'password' => bcrypt($password),
+                ]);
+                $created = true;
+            } else {
+                $created = false;
+            }
+
+            $token = Str::random(32);
+
+            $user->remember_token = $token;
+            $user->save();
+
+            event(new ChallengeSendToEmailEvent($challenge, $user, $password, $created));
+
+            $data['data']['user'] = $user;
+            $data['data']['token'] = $token;
+            $data['data']['user_created'] = $created;
         }
         return $data;
     }
 
     public function getSession(Request $r, string $session_hash) {
 
+        $data = [
+            'user_id' => $this->user['id'],
+            'session_hash' => $session_hash,
+            'sort_by' => "id",
+            'sort_order' => 'desc',
+        ];
+        if ($r->id) {
+            unset($data['session_hash']);
+            $data['id'] = $r->id;
+        }
+
         $chat = $this->challengeRepository->get($this->identifier,
-            [
-                'user_id' => $this->user['id'],
-                'session_hash' => $session_hash,
-                'sort_by' => "id",
-                'sort_order' => 'desc',
-            ]
+            $data
         );
 
         $premium = $this->userService ? $this->userService->tm("expired_date") : false;

@@ -37,7 +37,8 @@ export function useProfileClass() {
 
     const getToken = () => localStorage.getItem(TOKEN_KEY) || null;
 
-    const saveToken = (token) => {
+    const setToken = (token) => {
+        console.log('settoken', token);
         localStorage.setItem(TOKEN_KEY, token);
     };
 
@@ -45,7 +46,7 @@ export function useProfileClass() {
         let token = getToken();
         if (!token) {
             token = Math.random().toString(36).substr(2, 8);
-            saveToken(token);
+            setToken(token);
         }
         return token;
     };
@@ -74,7 +75,7 @@ export function useProfileClass() {
         createSession,
 
         getToken,
-        saveToken,
+        setToken,
         getOrCreateToken,
         getIdentifier,
         saveIdentifier,
@@ -83,11 +84,11 @@ export function useProfileClass() {
 }
 
 
-export function useProfileClass() {
+export function useProfile() {
     const profile = useProfileClass();
 
     return {
-        User: {
+        Profile: {
             ...profile
         }
     };

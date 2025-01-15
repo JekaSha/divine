@@ -30,10 +30,34 @@ class ChallengeRepository implements ChallengeRepositoryInterface
 
         $query->orWhere('guest_hash', $identifier);
 
+        if (isset($filters['id'])) {
+            $query->where('id', $filters['id']);
+        }
+
+        if (isset($filters['prompt'])) {
+            $query->where('prompt', 'like', '%' . $filters['prompt'] . '%');
+        }
+
+        if (isset($filters['prompt_id'])) {
+            $query->where('prompt_id', $filters['prompt_id']);
+        }
+
+        if (isset($filters['request'])) {
+            if (isset($filters['request_search_type']) && $filters['request_search_type'] === 'like') {
+                $query->where('request', 'like', '%' . $filters['request'] . '%');
+            } else {
+                $query->where('request', $filters['request']);
+            }
+        }
+
+
+
+
         if (isset($filters['sort_by'])) {
             $direction = $filters['sort_order'] ?? 'asc';
             $query->orderBy($filters['sort_by'], $direction);
         }
+
 
         return $query->get();
     }
@@ -63,6 +87,7 @@ class ChallengeRepository implements ChallengeRepositoryInterface
 
         $existing = Challenge::where('session_hash', $data['session_hash'])
             ->where('request', $data['request'])
+            ->where('prompt_id', $data['prompt_id'])
             ->first();
 
         if ($existing) {

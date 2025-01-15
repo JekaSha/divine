@@ -24,9 +24,10 @@ services:
       - '4000:3000'
     environment:
       NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "true"
     command: "npm run dev"
     volumes:
-      - ./frontend:/app
+      - ./frontend:/app:delegated
       - /app/node_modules
 
   nginx:

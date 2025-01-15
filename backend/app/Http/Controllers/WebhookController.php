@@ -115,6 +115,7 @@ class WebhookController extends Controller
             $invoiceHash = $metadata->invoice_hash ?? null;
 
             // Update invoice status
+            $this->invoice->response = $paymentIntent;
             $this->invoice->status = $status;
             $this->invoice->save();
 

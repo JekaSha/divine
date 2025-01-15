@@ -2,7 +2,6 @@ import { defineNuxtConfig } from 'nuxt/config';
 import vuetify from 'vite-plugin-vuetify';
 import MarkdownIt from 'markdown-it'
 
-// Получаем текущий каталог файла
 
 const md = new MarkdownIt();
 
@@ -10,6 +9,12 @@ export default defineNuxtConfig({
     runtimeConfig: {
         public: {
             apiBaseUrl: process.env.API_BASE_URL,
+        },
+    },
+    server: {
+        watch: {
+            usePolling: true, // Включает опрос изменений
+            interval: 100,    // Интервал в миллисекундах
         },
     },
     devtools: {
@@ -42,6 +47,11 @@ export default defineNuxtConfig({
             }),
 
         ]
+    },
+    components: {
+        dirs: [
+            { path: '~/components', global: true },
+        ],
     },
     modules: ['@nuxtjs/i18n'],
     i18n: {

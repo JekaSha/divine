@@ -5,8 +5,8 @@ import { useApi } from "~/composables/useApi";
 export function useChallengeClass() {
     const { request } = useApi();
 
-    async function getChatBySession(sessionId) {
-        return await request(`/challenges/session/${sessionId}`);
+    async function getChatBySession(sessionId, id) {
+        return await request(`/challenges/session/${sessionId}`, {id});
     }
 
     async function getAllChats() {
@@ -17,9 +17,12 @@ export function useChallengeClass() {
         return await request(`/chats/multiple`, { hashes: chatHashes });
     }
 
+    async function getAnswer(id) {
+        return await request(`/challenges/get/answer/${id}`);
+    }
     async function chat(data) {
         if (data.promptId && data.session) {
-            return await request(`/challenges/answer/${data.promptId}/${data.session}`, data);
+            return await request(`/challenges/answer/${data.session}`, data);
         }
     }
 
@@ -37,7 +40,8 @@ export function useChallengeClass() {
         getDialogsByHashes,
         chat,
         getLoadPackages,
-        emailSave
+        emailSave,
+        getAnswer
     };
 }
 

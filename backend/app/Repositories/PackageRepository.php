@@ -18,6 +18,13 @@ class PackageRepository
             }
         }
 
+        if (isset($filter['sort_field']) && isset($filter['sort_order'])) {
+            $query->orderBy($filter['sort_field'], $filter['sort_order']);
+        } else {
+            // Сортировка по умолчанию
+            $query->orderBy('ord', 'desc');
+        }
+
         return $query->get();
     }
 

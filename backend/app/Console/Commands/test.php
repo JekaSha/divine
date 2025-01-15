@@ -6,6 +6,11 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 use App\Services\UserService;
+use App\Services\ChallengeService;
+use App\Models\Challenge;
+
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ChallengeMail;
 
 
 class test extends Command
@@ -25,10 +30,11 @@ class test extends Command
      */
     protected $description = 'Check and update the status of transactions';
 
-
-    public function __construct()
+    protected $challengeService;
+    public function __construct(ChallengeService $challengeService)
     {
         parent::__construct();
+        $this->challengeService = $challengeService;
 
     }
 
@@ -37,36 +43,32 @@ class test extends Command
      */
     public function handle()
     {
-        Log::info("Test");
+        Log::info("Test Start");
 
-        $userService = app(UserService::class);
+        $email = "ishaposhnyk@yahoo.com";
+        try {
+        Mail::raw('This is a test email', function ($message) use ($email) {
+            $message->to($email)
+                ->subject('Test Email from Laravel');
+        });
+        } catch (\Exception $e) {
+            logger()->error('Email failed: ' . $e->getMessage());
+        }
+die;
 
-        // Установка пользователя
-        $userId = 1;
-        $userService->setUserId($userId);
+        $challenge =  Challenge::find(1);
 
-        // Создание пропсов
-        $propName1 = 'example_string';
-        $propValue1 = 'This is a string value';
+        Log::info("Challenge fetched successfully", ['challenge_id' => $challenge->id]);
 
-        $propName2 = 'example_array';
-        $propValue2 = ['key1' => 'value1', 'key2' => 'value2'];
+        // Preparing data for the email
+        $lang = 'en'; // Example language
+        $password = 'test-password'; // Example password
+        $link = 'https://example.com/challenge/1'; // Example link
 
-        // Записываем пропсы
-        $userService->setProp($propName1, $propValue1);
-        $userService->setProp($propName2, $propValue2);
+        // Sending the email
+        Mail::to('shaposhnyk@gmail.com')->send(new ChallengeMail($challenge, $link, $password, $lang));
 
-        // Чтение пропсов
-        $retrievedProp1 = $userService->getProp($propName1);
-        $retrievedProp2 = $userService->getProp($propName2);
 
-        // Логирование данных
-        Log::info("Retrieved string prop: ", ['prop' => $retrievedProp1]);
-        Log::info("Retrieved array prop: ", ['prop' => $retrievedProp2]);
-
-        // Проверка на вывод
-        $this->info("String Prop: " . $retrievedProp1);
-        $this->info("Array Prop: " . json_encode($retrievedProp2));
 
         Log::info("Test command finished successfully");
     }

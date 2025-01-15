@@ -1,6 +1,6 @@
 <template>
 
-		<Profile :user="user" :permissions="permissions"/>
+	<ProfileCart :user="user" :permissions="permissions"/>
 
 
 	<v-container class="py-12">
@@ -112,7 +112,7 @@
 									></v-text-field>
 
 									<!-- Прогресс-бар отображается, пока выполняется запрос -->
-									<div v-if="!isLoading && !responseData && !errorMessage" class="progress-bar-container">
+									<div v-if="!isLoading && !preAnswer && !errorMessage" class="progress-bar-container">
 										<v-progress-linear
 											:indeterminate="false"
 											:buffer-value="progress"
@@ -122,16 +122,14 @@
 										></v-progress-linear>
 									</div>
 
-									<div v-if="processedResponse.truncated" class="mt-4 response-container">
+									<div v-if="preAnswer && preAnswer.response" class="mt-4 response-container">
 										<p class="question">
-											<span class="question-label">Question:</span> {{ responseData.request }}
+											<span class="question-label">Question:</span> {{ preAnswer.request }}
 										</p>
 										<p class="response">
 											<span class="response-label">Response:</span>
-											<span v-html="processedResponse.truncated"></span>
-											<span v-if="processedResponse.percentage < 100" class="read-more">
-			... <a href="#subscription-plans" class="read-more-link">Read more</a>
-		</span>
+											<span v-html="preAnswer.response"></span>
+
 										</p>
 									</div>
 
@@ -252,6 +250,7 @@ import { ref, onMounted } from "vue";
 import axios from "axios";
 import { useSession } from '~/composables/useSession';
 import { useToken } from '~/composables/useToken';
+import { useProfile } from '~/composables/useProfile';
 import { useChallenge } from '~/composables/useChallenge';
 import { useRoute } from 'vue-router';
 import { useApi } from "~/composables/useApi";
@@ -261,6 +260,7 @@ const step = ref(1);
 const challenge = ref("");
 const email = ref("");
 const user = ref(null)
+const { Profile } = useProfile();
 const isLoading = ref(false);
 const errorMessage = ref(null); // Состояние для хранения сообщения об ошибке
 const identifier = ref(generateIdentifier());
@@ -272,6 +272,10 @@ const { request } = useApi();
 
 const progress = ref(0);
 const responseData = ref(null);
+const preAnswer = ref(null)
+const preAnswerId = ref(null)
+const responseDataId = ref(null);
+
 
 const response_percentage_trim = ref(null);
 
@@ -283,6 +287,7 @@ const isPackage = computed(() => {
 });
 
 const processedResponse = computed(() => {
+
 	if (!responseData.value?.response) {
 		return { truncated: "", percentage: 0 };
 	}
@@ -329,7 +334,7 @@ const processedResponse = computed(() => {
 	truncated = truncated.replace(/##\s*(.+)/g, "<h2>$1</h2>");
 	truncated = truncated.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 	truncated = truncated.replace(/-\s(.+)/g, "<li>$1</li>");
-
+console.log(truncated, percentage)
 	return {
 		truncated,
 		percentage
@@ -477,32 +482,66 @@ async function submitChallenge() {
 		errorMessage.value = null;
 		progress.value = 0;
 
-		// Запускаем эмуляцию прогресса
 		const interval = setInterval(() => {
 			if (progress.value < 90) {
+				Challenge.getAnswer();
 				progress.value += 10;
 			}
 		}, 2500);
 
 
-		const chat = await Challenge.chat({session: session, request: challenge.value, promptId: 1});
+		const chat = await Challenge.chat({session: session, request: challenge.value, promptId: [1,2]});
 
 		clearInterval(interval);
 
 		if (chat.status === "success") {
 			const data = chat.data;
 
-			response_percentage_trim.value = data.percentages;
-			responseData.value = data;
+			const result = Object.values(data.challenges).find(challenge => challenge.prompt_id === 2);
+			const rD = Object.values(data.challenges).find(challenge => challenge.prompt_id === 1);
 
+			responseDataId.value = rD.id;
+			preAnswerId.value = result.id;
+
+			if (result.response ) {
+				preAnswer.value = {response: result.response, request: result.request};
+			}
+
+
+			const intervalGets = setInterval(async () => {
+				try {
+					if (!preAnswer.value) {
+						const answer = await Challenge.getAnswer(preAnswerId.value);
+						preAnswer.value = { ...answer.data.challenges[0] }
+						console.log('answer', answer);
+					}
+
+					if (!responseData.value) {
+						const response = await Challenge.getAnswer(responseDataId.value);
+						//responseData.value = { ...response.data.challenges[0] }
+						if (response.data.challenges[0] && response.data.challenges[0].response) {
+							getStepData(4, responseDataId.value);
+						}
+
+
+					}
+
+					if (preAnswer.value && responseData.value) {
+						clearInterval(intervalGets);
+					}
+				} catch (error) {
+					console.error('Error fetching data:', error);
+					clearInterval(intervalGets); // Остановить интервал в случае ошибки
+				}
+			}, 2500);
 			progress.value = 100;
-
+/*
 			stepsHistory.value.push({
 				title: challenge.value,
 				step: step.value,
 				responseData: data
 			});
-
+*/
 		} else {
 			throw new Error(chat.data.message || "Unknown error");
 		}
@@ -523,7 +562,10 @@ async function submitEmail() {
 		const r = await Challenge.emailSave({session:session, email:email.value});
 		console.log('r:', r);
 		if (r.status === "success") {
-			step.value = 3;
+			step.value = 4;
+			Profile.setToken(r.data.token)
+			user.value = r.data.user
+			email.value = user.value.email
 		} else {
 			throw new Error(r.data.message || "Unknown error");
 		}
@@ -534,12 +576,13 @@ async function submitEmail() {
 	}
 }
 
-async function getStepData(setStep) {
+async function getStepData(setStep, id = null) {
 
 	const route = useRoute()
 
-	if (route.query.token) {
-		localStorage.setItem('authToken', route.query.token)
+	if (route && route.query && route.query.token) {
+		///localStorage.setItem('authToken', route.query.token)
+		Profile.setToken(route.query.token)
 	}
 
 	try {
@@ -547,7 +590,7 @@ async function getStepData(setStep) {
 		isLoading.value = true;
 		errorMessage.value = null;
 
-		const chat = await Challenge.getChatBySession(session)
+		const chat = await Challenge.getChatBySession(session, id)
 
 		if (chat.status === "success") {
 
@@ -980,5 +1023,6 @@ onMounted(() => {
 	position: absolute; /* Убираем его из потока */
 	z-index: -1; /* Перемещаем на задний план */
 }
+
 
 </style>
